@@ -2,6 +2,13 @@
 
 import webapp2
 import cgi
+import re
+import jinja2
+import os
+
+template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir), 
+                               autoescape = True)
 
 months = ['January', 
           'Februrary', 
@@ -75,6 +82,10 @@ Thanks_message = """
 Thanks! That is a valid day!
 """
 
+class BaseHandler(webapp2.RequestHandler):
+    def render(self, template, **kw):
+        self.response.out.write(render_str(template, **kw))
+
 
 class MainPage(webapp2.RequestHandler):
     def write_form(self, error="", month="", day="", year=""):
@@ -128,37 +139,117 @@ ROT13form = """
 </form>
 """
 
-def rot13(s):
-    result = ""
-    for letter in s:
-        letter_int = ord(letter)
-        if letter_int >= 65 and letter_int <= 90:
-            letter_int += 13
-            if letter_int > 90:
-                letter_int %= 90
-                letter_int += 64
-        elif letter_int >= 97 and letter_int <= 122:
-            letter_int += 13
-            if letter_int > 122:
-                letter_int %= 122
-                letter_int += 96
-        result += chr(letter_int)
-    return result
-
-class ROT13Handler(webapp2.RequestHandler):
+class ROT13Handler(BaseHandler):
     def get(self):
-        self.write_form()
+        self.render('rot13-form.html')
 
     def post(self):
         user_text = self.request.get('text')
-        rot13_text = rot13(user_text)
+        rot13_text = self.rot13(user_text)
         self.write_form(rot13_text)
 
     def write_form(self, text=""):
-        self.response.write(ROT13form % {'text': escape_html(text)})
+        self.render('rot13-form.html', text=escape_html(text))
+
+    def rot13(self, s):
+        result = ""
+        for letter in s:
+            letter_int = ord(letter)
+            if letter_int >= 65 and letter_int <= 90:
+                letter_int += 13
+                if letter_int > 90:
+                    letter_int %= 90
+                    letter_int += 64
+            elif letter_int >= 97 and letter_int <= 122:
+                letter_int += 13
+                if letter_int > 122:
+                    letter_int %= 122
+                    letter_int += 96
+            result += chr(letter_int)
+        return result
+
+USERNAME_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+PASSWORD_RE = re.compile(r"^.{3,20}$")
+EMAIL_RE = re.compile(r"^[\S]+@[\S]+\.[\S]+$")
+
+def valid_username(username):
+    return USERNAME_RE.match(username)
+
+def valid_password(password):
+    return PASSWORD_RE.match(password)
+
+def valid_email(email):
+    return EMAIL_RE.match(email)
+
+def render_str(template, **params):
+    t = jinja_env.get_template(template)
+    return t.render(params)
+
+
+
+
+class SignupHandler(BaseHandler):
+    def get(self):
+        self.render('signup-form.html')
+
+    def post(self):
+        username_error = ""
+        password_error = ""
+        verify_error = ""
+        email_error = ""
+
+        user_username = self.request.get('username')
+        user_password = self.request.get('password')
+        user_verify = self.request.get('verify')
+        user_email = self.request.get('email')
+
+        if not valid_username(user_username):
+            username_error = "That is not a valid username."
+
+        if not valid_password(user_password):
+            password_error = "That is not a valid password."
+
+        elif user_password != user_verify:
+            verify_error = "Passwords don't match"
+
+        if user_email and not valid_email(user_email):
+            email_error = "That is not a valid email."
+
+        if not (username_error or password_error or verify_error or email_error):
+            self.redirect('/unit2/welcome?username=' + user_username)
+        else:
+            self.write_form(username=user_username, 
+                            email=user_email,
+                            username_error=username_error, 
+                            password_error=password_error, 
+                            verify_error=verify_error, 
+                            email_error=email_error)
+
+
+    def write_form(self, username="", email="", username_error="", password_error="", verify_error="", email_error=""):
+        self.render('signup-form.html', {'username': username,
+                                          'email': email,
+                                          'username_error': username_error, 
+                                          'password_error': password_error, 
+                                          'verify_error': verify_error, 
+                                          'email_error': email_error})
+
+
+class WelcomeHandler(BaseHandler):
+    def get(self):
+        username = self.request.get('username')
+        if valid_username(username):
+            self.render('welcome.html', username=username)
+        else:
+            self.redirect('/unit2/signup')
+
+
+
 
 application = webapp2.WSGIApplication([('/', MainPage), 
                                        ('/thanks', ThanksHandler), 
                                        ('/alvin', AlvinHandler), 
-                                       ('/unit2/rot13', ROT13Handler)
+                                       ('/unit2/rot13', ROT13Handler), 
+                                       ('/unit2/signup', SignupHandler), 
+                                       ('/unit2/welcome', WelcomeHandler)
                                       ], debug=True)
