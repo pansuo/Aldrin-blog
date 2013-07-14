@@ -66,6 +66,16 @@ form = """
 </form>
 """
 
+alvin_picture = """
+<div>LOL HI ALVIN</div>
+<img src="https://raw.github.com/aldrinagana/Snake/master/Snake/lol.jpg" />
+"""
+
+Thanks_message = """
+Thanks! That is a valid day!
+"""
+
+
 class MainPage(webapp2.RequestHandler):
     def write_form(self, error="", month="", day="", year=""):
         self.response.write(form % {'error': error, 
@@ -84,16 +94,71 @@ class MainPage(webapp2.RequestHandler):
         user_year = self.request.get('Year')
 
         month = valid_month(user_month)
-        day = valid_month(user_day)
+        day = valid_day(user_day)
         year = valid_year(user_year)
 
-        if not (month and day and year):
+        if month == "April" and day == 14 and year == 1999:
+            self.redirect("/alvin")
+        elif not (month and day and year):
             self.write_form("That is an invalid day!", user_month, user_day, user_year)
+            self.write_form(self.request)
+        
         else:
-            self.response.write("Thanks! %(month)s %(day)s, %(year)s is a valid day!" % {"month": user_month, "day": user_day, "year": user_year})
+            self.redirect("/thanks")
 
         #self.response.headers['Content-Type'] = 'text/plain'
         #self.response.write(self.request)
 
 
-application = webapp2.WSGIApplication([('/', MainPage)], debug=True)
+class ThanksHandler(webapp2.RequestHandler):
+    def get(self):
+        self.response.write(Thanks_message)
+
+class AlvinHandler(webapp2.RequestHandler):
+    def get(self):
+        self.response.write(alvin_picture)
+
+
+ROT13form = """
+<form method="post">
+    <label style="font-size: 2em"><strong>Enter some text to ROT13:</strong></label>
+    <br>
+        <textarea name="text" cols="50" rows="5">%(text)s</textarea>
+    <input type="submit">
+</form>
+"""
+
+def rot13(s):
+    result = ""
+    for letter in s:
+        letter_int = ord(letter)
+        if letter_int >= 65 and letter_int <= 90:
+            letter_int += 13
+            if letter_int > 90:
+                letter_int %= 90
+                letter_int += 64
+        elif letter_int >= 97 and letter_int <= 122:
+            letter_int += 13
+            if letter_int > 122:
+                letter_int %= 122
+                letter_int += 96
+        result += chr(letter_int)
+    return result
+
+class ROT13Handler(webapp2.RequestHandler):
+    def get(self):
+        self.write_form()
+
+    def post(self):
+        user_text = self.request.get('text')
+        rot13_text = rot13(user_text)
+        self.write_form(rot13_text)
+
+    def write_form(self, text=""):
+        self.response.write(ROT13form % {'text': escape_html(text)})
+
+application = webapp2.WSGIApplication([('/', MainPage), 
+                                       ('/thanks', ThanksHandler), 
+                                       ('/alvin', AlvinHandler), 
+                                       ('/unit2/rot13', ROT13Handler)
+                                      ], debug=True)
