@@ -153,7 +153,7 @@ class ROT13Handler(BaseHandler):
         self.write_form(rot13_text)
 
     def write_form(self, text=""):
-        self.render('rot13-form.html', text=escape_html(text))
+        self.render('rot13-form.html', text=text)
 
     def rot13(self, s):
         result = ""
