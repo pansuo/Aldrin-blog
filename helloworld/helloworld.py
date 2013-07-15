@@ -82,12 +82,28 @@ Thanks_message = """
 Thanks! That is a valid day!
 """
 
+USERNAME_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
+PASSWORD_RE = re.compile(r"^.{3,20}$")
+EMAIL_RE = re.compile(r"^[\S]+@[\S]+\.[\S]+$")
+
+def valid_username(username):
+    return USERNAME_RE.match(username)
+
+def valid_password(password):
+    return PASSWORD_RE.match(password)
+
+def valid_email(email):
+    return EMAIL_RE.match(email)
+
+def render_str(template, **params):
+    t = jinja_env.get_template(template)
+    return t.render(params)
+
 class BaseHandler(webapp2.RequestHandler):
     def render(self, template, **kw):
         self.response.out.write(render_str(template, **kw))
 
-
-class MainPage(webapp2.RequestHandler):
+class MainPage(BaseHandler):
     def write_form(self, error="", month="", day="", year=""):
         self.response.write(form % {'error': error, 
                                     'month': escape_html(month),
@@ -112,7 +128,6 @@ class MainPage(webapp2.RequestHandler):
             self.redirect("/alvin")
         elif not (month and day and year):
             self.write_form("That is an invalid day!", user_month, user_day, user_year)
-            self.write_form(self.request)
         
         else:
             self.redirect("/thanks")
@@ -120,24 +135,13 @@ class MainPage(webapp2.RequestHandler):
         #self.response.headers['Content-Type'] = 'text/plain'
         #self.response.write(self.request)
 
-
-class ThanksHandler(webapp2.RequestHandler):
+class ThanksHandler(BaseHandler):
     def get(self):
         self.response.write(Thanks_message)
 
-class AlvinHandler(webapp2.RequestHandler):
+class AlvinHandler(BaseHandler):
     def get(self):
         self.response.write(alvin_picture)
-
-
-ROT13form = """
-<form method="post">
-    <label style="font-size: 2em"><strong>Enter some text to ROT13:</strong></label>
-    <br>
-        <textarea name="text" cols="50" rows="5">%(text)s</textarea>
-    <input type="submit">
-</form>
-"""
 
 class ROT13Handler(BaseHandler):
     def get(self):
@@ -167,26 +171,6 @@ class ROT13Handler(BaseHandler):
                     letter_int += 96
             result += chr(letter_int)
         return result
-
-USERNAME_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
-PASSWORD_RE = re.compile(r"^.{3,20}$")
-EMAIL_RE = re.compile(r"^[\S]+@[\S]+\.[\S]+$")
-
-def valid_username(username):
-    return USERNAME_RE.match(username)
-
-def valid_password(password):
-    return PASSWORD_RE.match(password)
-
-def valid_email(email):
-    return EMAIL_RE.match(email)
-
-def render_str(template, **params):
-    t = jinja_env.get_template(template)
-    return t.render(params)
-
-
-
 
 class SignupHandler(BaseHandler):
     def get(self):
@@ -234,7 +218,6 @@ class SignupHandler(BaseHandler):
                                           'verify_error': verify_error, 
                                           'email_error': email_error})
 
-
 class WelcomeHandler(BaseHandler):
     def get(self):
         username = self.request.get('username')
@@ -242,9 +225,6 @@ class WelcomeHandler(BaseHandler):
             self.render('welcome.html', username=username)
         else:
             self.redirect('/unit2/signup')
-
-
-
 
 application = webapp2.WSGIApplication([('/', MainPage), 
                                        ('/thanks', ThanksHandler), 
