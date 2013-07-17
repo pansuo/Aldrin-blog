@@ -1,0 +1,50 @@
+/* WRITTEN BY ALDRIN AGANA JULY 2013
+Stylesheet for aldrinagana.html 
+*/
+
+
+* {
+	background-color: #CDBFAC;
+	font-family: Century Gothic, sans-serif; 
+}
+
+#name {
+	font-size: 5em;
+	text-align: center;
+	margin: 100px 0px 0px 0px;
+	color: #154890;
+	/*font-weight: bold; */
+}
+
+#links {
+	text-align: center;
+}
+
+.letter {
+	margin: -10px;
+}
+
+.letter:hover {
+	color: #6699FF;
+}
+
+.link {
+	font-size: 2em;
+	text-align: center;
+	text-decoration: none;
+	color: #FF6600;
+	/*color: #000000;*/
+	padding: 0px 20px 0px 20px;
+	margin: 0px 20px 0px 20px;
+	display: inline-block;
+	/*border-top: 2px #6699FF solid; */
+
+}
+
+a:hover {
+	text-decoration: none;
+	/*color: #E1D4C0;*/
+	color: #000000;
+	border-top: 2px #6699FF solid;
+
+}

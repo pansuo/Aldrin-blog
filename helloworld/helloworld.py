@@ -103,6 +103,10 @@ class BaseHandler(webapp2.RequestHandler):
     def render(self, template, **kw):
         self.response.out.write(render_str(template, **kw))
 
+class PersonalWebsiteHandler(BaseHandler):
+    def get(self):
+        self.render('aldrinagana.html')
+
 class MainPage(BaseHandler):
     def write_form(self, error="", month="", day="", year=""):
         self.response.write(form % {'error': error, 
@@ -231,5 +235,6 @@ application = webapp2.WSGIApplication([('/', MainPage),
                                        ('/alvin', AlvinHandler), 
                                        ('/unit2/rot13', ROT13Handler), 
                                        ('/unit2/signup', SignupHandler), 
-                                       ('/unit2/welcome', WelcomeHandler)
+                                       ('/unit2/welcome', WelcomeHandler), 
+                                       ('/personal', PersonalWebsiteHandler)
                                       ], debug=True)
