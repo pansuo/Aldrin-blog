@@ -10,6 +10,8 @@ template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir), 
                                autoescape = True)
 
+
+
 months = ['January', 
           'Februrary', 
           'March', 
@@ -95,13 +97,16 @@ def valid_password(password):
 def valid_email(email):
     return EMAIL_RE.match(email)
 
-def render_str(template, **params):
-    t = jinja_env.get_template(template)
-    return t.render(params)
-
 class BaseHandler(webapp2.RequestHandler):
+    def write(self, *a, **kw):
+        self.response.out.write(*a, **kw)
+
+    def render_str(self, template, **params):
+        t = jinja_env.get_template(template)
+        return t.render(params)
+
     def render(self, template, **kw):
-        self.response.out.write(render_str(template, **kw))
+        self.write(self.render_str(template, **kw))
 
 class PersonalWebsiteHandler(BaseHandler):
     def get(self):
@@ -230,11 +235,16 @@ class WelcomeHandler(BaseHandler):
         else:
             self.redirect('/unit2/signup')
 
-application = webapp2.WSGIApplication([('/', MainPage), 
+class BlogHandler(BaseHandler):
+    def get(self):
+        self.render('blog.html')
+
+
+application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler), 
                                        ('/thanks', ThanksHandler), 
                                        ('/alvin', AlvinHandler), 
                                        ('/unit2/rot13', ROT13Handler), 
                                        ('/unit2/signup', SignupHandler), 
                                        ('/unit2/welcome', WelcomeHandler), 
-                                       ('/personal', PersonalWebsiteHandler)
+                                       ('/blog', BlogHandler)
                                       ], debug=True)
