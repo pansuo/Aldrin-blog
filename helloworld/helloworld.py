@@ -15,6 +15,30 @@ jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
                                autoescape = True)
 
 
+class Pacific_tzinfo(datetime.tzinfo):
+    """Implementation of the Pacific timezone."""
+    def utcoffset(self, dt):
+        return datetime.timedelta(hours=-8) + self.dst(dt)
+
+    def _FirstSunday(self, dt):
+        """First Sunday on or after dt."""
+        return dt + datetime.timedelta(days=(6-dt.weekday()))
+
+    def dst(self, dt):
+        # 2 am on the second Sunday in March
+        dst_start = self._FirstSunday(datetime.datetime(dt.year, 3, 8, 2))
+        # 1 am on the first Sunday in November
+        dst_end = self._FirstSunday(datetime.datetime(dt.year, 11, 1, 1))
+
+        if dst_start <= dt.replace(tzinfo=None) < dst_end:
+            return datetime.timedelta(hours=1)
+        else:
+            return datetime.timedelta(hours=0)
+    def tzname(self, dt):
+        if self.dst(dt) == datetime.timedelta(hours=0):
+            return "PST"
+        else:
+            return "PDT"
 
 months = ['January', 
           'Februrary', 
@@ -271,14 +295,17 @@ class BlogPosts(db.Model):
 
     def render(self):
         self._render_text = self.content.replace('\n', '<br>')
-        return render_str("post.html", post=self)
+        pst_time = datetime.datetime.fromtimestamp(time.mktime(self.created.timetuple()), Pacific_tzinfo())
+        return render_str("post.html", post=self, pst_time=pst_time)
+
+
+
 
 class PermalinkHandler(BaseHandler):
     def get(self, post_id):
         blog_post = BlogPosts.get_by_id(int(post_id))
         if blog_post:
-            self.render('permalink.html', subject=blog_post.subject, created=blog_post.created, content=blog_post.content)
-
+            self.render('permalink.html', post=blog_post)
         else:
             self.error(404)
 
