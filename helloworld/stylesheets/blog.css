@@ -6,8 +6,8 @@
 
 body {
 	width: 600px;
-	margin: 0 auto;
 	background-color: #f7f7f7;
+	margin: 0 auto;
 }
 
 hr {
@@ -52,7 +52,9 @@ a {
 .post_subject {
 	font-size: 1.4em;
 	color: #447294;
-	text-align: left;
+	float: left;
+	position: absolute;
+	bottom: 2px;
 }
 
 .post_created {
@@ -60,7 +62,7 @@ a {
 	color: #8FBCDB;
 	float: right;
 	position: absolute;
-	bottom: 12px;
+	bottom: 4px;
 	right: 0px;
 }
 
@@ -71,7 +73,7 @@ a {
 
 
 #new_post_header {
-	font-weight: bold;
+
 	font-size: 1.5em;
 }
 
@@ -83,3 +85,27 @@ a {
 .error_message {
 	color: red;
 }
+
+table {
+	width: 100%;
+}
+
+#about_me_text_cell {
+	text-align: justify;
+	vertical-align: top;
+	padding-right: 10px;
+}
+
+img {
+	height: 200px;
+	width: 200px;
+}
+
+#about_me_img_cell {
+
+	text-align: right;
+}
+
+
+
+
