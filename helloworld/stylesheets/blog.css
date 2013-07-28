@@ -5,8 +5,8 @@
 }
 
 body {
-	margin-left: 25%;
-	margin-right: 25%;
+	width: 600px;
+	margin: 0 auto;
 	background-color: #f7f7f7;
 }
 
@@ -31,7 +31,7 @@ a {
 .navbar_link {
 	display: inline-block;
 	padding-right: 10px;
-	color: #3b5998;
+	color: #FF6600;
 	text-decoration: none;
 }
 
