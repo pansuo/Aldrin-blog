@@ -5,6 +5,10 @@ import cgi
 import re
 import jinja2
 import os
+import time
+import datetime
+
+from google.appengine.ext import db
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir), 
@@ -235,10 +239,44 @@ class WelcomeHandler(BaseHandler):
         else:
             self.redirect('/unit2/signup')
 
-class BlogHandler(BaseHandler):
+class NewBlogPostHandler(BaseHandler):
     def get(self):
-        self.render('blog.html')
+        self.render('newpost.html', subject="", content="")
 
+    def post(self):
+        user_subject = self.request.get('subject')
+        user_content = self.request.get('content')
+        if not (user_subject and user_content):
+            error_message = "Please enter a title and content"
+            self.render('newpost.html', subject=user_subject, content=user_content, error_message=error_message)
+        else:
+            blog_post = BlogPosts(subject=user_subject, content=user_content)
+            blog_post.put()
+            post_id = str(blog_post.key().id())
+            self.redirect('/blog/%s' % post_id)
+
+class BlogHandler(BaseHandler):
+    def render_front(self, blog_posts=""):
+        posts = db.GqlQuery("SELECT * FROM BlogPosts ORDER BY created DESC")
+        self.render('blog.html', blog_posts=posts)
+
+    def get(self):
+        self.render_front()
+
+class BlogPosts(db.Model):
+    subject = db.StringProperty(required = True)
+    content = db.TextProperty(required = True)
+    created = db.DateTimeProperty(auto_now_add = True)
+
+
+class PermalinkHandler(BaseHandler):
+    def get(self, post_id):
+        blog_post = BlogPosts.get_by_id(int(post_id))
+        if blog_post:
+            self.render('permalink.html', subject=blog_post.subject, created=blog_post.created, content=blog_post.content)
+
+        else:
+            self.error(404)
 
 application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler), 
                                        ('/thanks', ThanksHandler), 
@@ -246,5 +284,7 @@ application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler),
                                        ('/unit2/rot13', ROT13Handler), 
                                        ('/unit2/signup', SignupHandler), 
                                        ('/unit2/welcome', WelcomeHandler), 
-                                       ('/blog', BlogHandler)
+                                       ('/blog', BlogHandler), 
+                                       ('/blog/newpost', NewBlogPostHandler), 
+                                       ('/blog/([0-9]+)', PermalinkHandler)
                                       ], debug=True)

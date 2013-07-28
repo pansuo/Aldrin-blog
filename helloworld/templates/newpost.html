@@ -1,0 +1,46 @@
+<!-- newpost.html -->
+
+<!DOCTYPE html>
+
+<html>
+	<head>
+		<link rel="stylesheet" type="text/css" href="../stylesheets/blog.css" />
+		<title>Aldrin's Blog</title>
+
+	</head>
+
+	<body>
+		<a href="/blog"><div id="header">Aldrin's Blog</div></a>
+
+		<div id="navbar">
+			<a href="/blog"><span class="navbar_link">Home</span></a>
+			<a href="/blog/newpost"><span class="navbar_link">Post</span></a>
+			<a href="/"><span class="navbar_link">Website</span></a>
+		</div>
+
+		<form method="post">
+			<div id="new_post_header">New Post</div>
+			<br>
+
+			<label class="post_label">Subject
+				<br>
+				<input type="text" name="subject" value="{{subject}}">
+			</label>
+			<br>
+
+			<label class="post_label">Content
+				<br>
+				<textarea name="content" cols="50" rows="5">{{content}}</textarea>
+			</label>
+			<br>
+
+			<div class="error_message">{{error_message}}</div>
+
+			<input type="submit" value="Submit Post">
+		</form>
+
+
+	</body>
+
+</html>
+
