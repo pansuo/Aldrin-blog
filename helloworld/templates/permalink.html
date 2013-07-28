@@ -3,16 +3,6 @@
 
 {% block content %}
 
-		<div class="post">
-			<div class="post_header">
-				<span class="post_subject">{{subject}}</span>
-				<span class="post_created">{{created.strftime("%b %d, %Y %r")}}</span>
-				<hr>
-			</div>
-
-			<pre class="post_content">{{content}}</pre>
-		
-		</div>
-		<br>
+	{{ post.render() | safe }}		
 	
 {% endblock %}
