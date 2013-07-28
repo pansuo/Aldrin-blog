@@ -9,6 +9,8 @@ threadsafe: true
 handlers:
 - url: /stylesheets
   static_dir: stylesheets
+- url: /docs
+  static_dir: docs
 
 - url: /.*
   script: helloworld.application
