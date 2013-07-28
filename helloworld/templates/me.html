@@ -1,17 +1,26 @@
 {% extends "blogbase.html" %}
 
 {% block content %}
+	<br>
 
 	<div class="post_header">
 		<span class="post_subject">About Me</span></a>
 		<span class="post_created">Updated on: July 28, 2013</span>
 		<hr>	
 	</div>
+	<div id="about_me">
+		<table id="about_me_table">
+			<tr>
+				<td id="about_me_text_cell">
 
-	{% for post in blog_posts %}
-		{{ post.render() | safe }}
-		<br>
-		<br>
-	{% endfor %}
+				Hey, my name is Aldrin Agana. I'm a third year computer science major at UC Davis. I began my college career as an Applied Mathematics major but later switched to computer science after taking my first C class. From there I’ve taught myself Python, Java, SQL, HTML, CSS, Javascript, and jQuery, and I just started working on this personal website of mine to showcase my skills. I love to solve puzzles and brainteasers so programming naturally fits me well.
+				</td>
+				<td id="img_cell"> 
+					<img src="/docs/me.jpg" />
+				</td>
+			</tr>
+
+		</table>
+	</div>
 
 {% endblock %}
