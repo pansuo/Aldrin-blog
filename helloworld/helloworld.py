@@ -101,16 +101,17 @@ def valid_password(password):
 def valid_email(email):
     return EMAIL_RE.match(email)
 
+def render_str(template, **params):
+    t = jinja_env.get_template(template)
+    return t.render(params)
+
+
 class BaseHandler(webapp2.RequestHandler):
     def write(self, *a, **kw):
         self.response.out.write(*a, **kw)
 
-    def render_str(self, template, **params):
-        t = jinja_env.get_template(template)
-        return t.render(params)
-
     def render(self, template, **kw):
-        self.write(self.render_str(template, **kw))
+        self.write(render_str(template, **kw))
 
 class PersonalWebsiteHandler(BaseHandler):
     def get(self):
@@ -268,6 +269,9 @@ class BlogPosts(db.Model):
     content = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
 
+    def render(self):
+        self._render_text = self.content.replace('\n', '<br>')
+        return render_str("post.html", post=self)
 
 class PermalinkHandler(BaseHandler):
     def get(self, post_id):
@@ -278,6 +282,14 @@ class PermalinkHandler(BaseHandler):
         else:
             self.error(404)
 
+class AboutMeHandler(BaseHandler):
+    def get(self):
+        self.render_posts()
+
+    def render_posts(self, blog_posts=""):
+        posts = db.GqlQuery("SELECT * FROM BlogPosts ORDER BY created DESC")
+        self.render('me.html', blog_posts=posts)
+
 application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler), 
                                        ('/thanks', ThanksHandler), 
                                        ('/alvin', AlvinHandler), 
@@ -286,5 +298,6 @@ application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler),
                                        ('/unit2/welcome', WelcomeHandler), 
                                        ('/blog', BlogHandler), 
                                        ('/blog/newpost', NewBlogPostHandler), 
-                                       ('/blog/([0-9]+)', PermalinkHandler)
+                                       ('/blog/([0-9]+)', PermalinkHandler), 
+                                       ('/blog/me', AboutMeHandler)
                                       ], debug=True)

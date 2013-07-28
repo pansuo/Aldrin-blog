@@ -1,0 +1,17 @@
+{% extends "blogbase.html" %}
+
+{% block content %}
+
+	<div class="post_header">
+		<span class="post_subject">About Me</span></a>
+		<span class="post_created">Updated on: July 28, 2013</span>
+		<hr>	
+	</div>
+
+	{% for post in blog_posts %}
+		{{ post.render() | safe }}
+		<br>
+		<br>
+	{% endfor %}
+
+{% endblock %}

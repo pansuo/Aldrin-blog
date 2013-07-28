@@ -1,0 +1,14 @@
+<!-- post.html -->
+
+<div class="post">
+
+	<div class="post_header">
+		<a href="/blog/{{post.key().id()}}"><span class="post_subject">{{post.subject}}</span></a>
+		<span class="post_created">{{post.created.strftime("%b %d, %Y %r")}}</span>
+		<hr>	
+	</div>
+
+	<pre class="post_content">{{ post._render_text | safe }}</pre>
+	<br>
+	
+</div>

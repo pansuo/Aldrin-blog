@@ -19,6 +19,7 @@ a {
 }
 
 #header {
+	padding-top: 30px;
 	text-align: center;
 	font-size: 2.5em;
 	color: #3b5998;
@@ -26,18 +27,26 @@ a {
 }
 
 #navbar {
+	padding-top: 10px;
+	padding-bottom: 5px;
 }
 
 .navbar_link {
 	display: inline-block;
-	padding-right: 10px;
+	padding-right: 15px;
 	color: #FF6600;
 	text-decoration: none;
 }
 
+.navbar_link:hover {
+	/*color: #E1D4C0;*/
+	color: #000000;
+}
+
 .post_header {
 	width: 100%;
-	positon: relative;
+	position: relative;
+	display: block;
 }
 
 .post_subject {
@@ -49,13 +58,15 @@ a {
 .post_created {
 	font-size: .8em;
 	color: #8FBCDB;
-	text-align: right;
+	float: right;
+	position: absolute;
+	bottom: 12px;
+	right: 0px;
 }
 
 .post_content {
 	font-size: 1em;
 	text-align: left;
-
 }
 
 

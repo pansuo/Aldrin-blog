@@ -1,0 +1,32 @@
+<!-- base.html, base html page for blog -->
+
+<!DOCTYPE html>
+
+<html>
+	<head>
+		<link rel="stylesheet" type="text/css" href="../stylesheets/blog.css" />
+		<title>Aldrin's Blog</title>
+	<head>
+
+
+	<body>
+		<a href="/blog"><div id="header">Aldrin's Blog</div></a>
+		
+		<div id="navbar">
+			<a href="/blog"><span class="navbar_link">Home</span></a>
+			<a href="/blog/newpost"><span class="navbar_link">Post</span></a>
+			<a href="/"><span class="navbar_link">Website</span></a>
+			<a href="/blog/me"><span class="navbar_link">About Me</span></a>
+		</div>
+
+		<br>
+
+		<div id="content">
+			{% block content %}
+			{% endblock %}
+		</div>
+
+
+	</body>
+
+</html>

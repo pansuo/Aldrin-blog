@@ -1,41 +1,11 @@
-<!-- blog.html -->
+{% extends "blogbase.html" %}
 
-<!DOCTYPE html>
-
-<html>
-	<head>
-		<link rel="stylesheet" type="text/css" href="../stylesheets/blog.css" />
-		<title>Aldrin's Blog</title>
-	<head>
-
-
-	<body>
-		<a href="/blog"><div id="header">Aldrin's Blog</div></a>
-		
-		<div id="navbar">
-			<a href="/blog"><span class="navbar_link">Home</span></a>
-			<a href="/blog/newpost"><span class="navbar_link">Post</span></a>
-			<a href="/"><span class="navbar_link">Website</span></a>
-		</div>
-
-		<br>
+{% block content %}
 
 	{% for post in blog_posts %}
-		<div class="post">
 
-			<div class="post_header">
-				<a href="/blog/{{post.key().id()}}"><span class="post_subject">{{post.subject}}</span></a>
-				<span class="post_created">Posted on: {{post.created.strftime("%b %d, %Y %r")}}</span>
-				<hr>	
-			</div>
-
-			<pre class="post_content">{{post.content}}</pre>
-	
-		</div>
-		<br>
+		{{ post.render() | safe }}
 	
 	{% endfor %}
 
-	</body>
-
-</html>
+{% endblock %}
