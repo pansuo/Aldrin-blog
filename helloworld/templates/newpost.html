@@ -9,18 +9,20 @@
 
 			<label class="post_label">Subject
 				<br>
-				<input type="text" name="subject" value="{{subject}}">
+				<input type="text" name="subject" placeholder="" value="{{subject}}">
 			</label>
 			<br>
 
 			<label class="post_label">Content
 				<br>
-				<textarea name="content" cols="50" rows="5">{{content}}</textarea>
+				<textarea name="content" cols="50" rows="5" placeholder="How was your day today?">{{content}}</textarea>
 			</label>
 			<br>
 
 			<div class="error_message">{{error_message}}</div>
-
+			{% if not error_message %}
+				<br>
+			{% endif %}
 			<input type="submit" value="Submit Post">
 		</form>
 
