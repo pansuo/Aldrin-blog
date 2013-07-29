@@ -226,16 +226,16 @@ class SignupHandler(BaseHandler):
         user_email = self.request.get('email')
 
         if not valid_username(user_username):
-            username_error = "That is not a valid username."
+            username_error = "Not a valid username."
 
         if not valid_password(user_password):
-            password_error = "That is not a valid password."
+            password_error = "Not a valid password."
 
         elif user_password != user_verify:
             verify_error = "Passwords don't match"
 
         if user_email and not valid_email(user_email):
-            email_error = "That is not a valid email."
+            email_error = "Not a valid email."
 
         if not (username_error or password_error or verify_error or email_error):
             self.redirect('/unit2/welcome?username=' + user_username)
@@ -249,12 +249,13 @@ class SignupHandler(BaseHandler):
 
 
     def write_form(self, username="", email="", username_error="", password_error="", verify_error="", email_error=""):
-        self.render('signup-form.html', {'username': username,
-                                          'email': email,
-                                          'username_error': username_error, 
-                                          'password_error': password_error, 
-                                          'verify_error': verify_error, 
-                                          'email_error': email_error})
+        self.render('signup-form.html', username=username, 
+                                        email=email, 
+                                        username_error=username_error, 
+                                        password_error=password_error,
+                                        verify_error=verify_error, 
+                                        email_error=email_error
+                                        )
 
 class WelcomeHandler(BaseHandler):
     def get(self):
@@ -278,7 +279,8 @@ class NewBlogPostHandler(BaseHandler):
             blog_post = BlogPosts(subject=user_subject, content=user_content)
             blog_post.put()
             post_id = str(blog_post.key().id())
-            self.redirect('/blog/%s' % post_id)
+            self.redirect('/blog')
+            #self.redirect('/blog/%s' % post_id)
 
 class BlogHandler(BaseHandler):
     def render_front(self, blog_posts=""):
@@ -321,7 +323,7 @@ application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler),
                                        ('/thanks', ThanksHandler), 
                                        ('/alvin', AlvinHandler), 
                                        ('/unit2/rot13', ROT13Handler), 
-                                       ('/unit2/signup', SignupHandler), 
+                                       ('/blog/signup', SignupHandler), 
                                        ('/unit2/welcome', WelcomeHandler), 
                                        ('/blog', BlogHandler), 
                                        ('/blog/newpost', NewBlogPostHandler), 
