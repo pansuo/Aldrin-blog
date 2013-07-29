@@ -1,4 +1,13 @@
 /* blog.css */
+/*
+colors
+background: #f7f7f7;
+title header: #3b5998;
+links color: #FF6600;
+post subject: #447294;
+post date: #8FBCDB;
+
+*/
 
 * {
 	font-family: Century Gothic, sans-serif;
@@ -13,7 +22,6 @@ body {
 }
 
 hr {
-
 }
 
 a {
@@ -43,6 +51,10 @@ a {
 .navbar_link:hover {
 	/*color: #E1D4C0;*/
 	color: #000000;
+}
+
+.rightnavbar_link {
+	float: right;
 }
 
 .post_header {
@@ -81,11 +93,15 @@ a {
 	font-size: 1em;
 }
 
+.post_label input[type=text] {
+	width: 300px;
+}
+
 .error_message {
 	color: red;
 }
 
-table {
+.about_me_table {
 	width: 100%;
 }
 
@@ -105,6 +121,57 @@ img {
 	text-align: right;
 }
 
+#signup_header {
+	font-size: 1.5em;
+}
+/*
+.signup_table {
+	border: 5px solid;
+}
+
+tr {
+	border: 5px solid;
+}
+
+td {
+	border: 5px solid;
+}
+*/
+
+.signup_label {
+	width: 150px;
+}
+
+.signup_input {
+	width: 110px;
+}
+
+.signup_error {
+	text-align: left;
+	width: 200px;
+	padding-left: 5px;
+	color: red;
+}
+
+.signup_button {
+}
 
 
+
+input[type=submit] {
+	border-radius: 3px;
+	border: 1px solid black;
+	font-size: 1em;
+	height: 30px;
+	width: 80px;
+	color: white;
+	background-color: #FF6600;
+	padding-left: 50px;
+	padding-right: 50px; 
+	cursor: pointer;
+}
+
+input[type=submit]:hover {
+	background-color: #FF7C1F;
+}
 
