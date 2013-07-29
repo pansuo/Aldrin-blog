@@ -6,8 +6,10 @@
 
 body {
 	width: 600px;
-	background-color: #f7f7f7;
+	background-color: #f7f7f7;	
 	margin: 0 auto;
+	padding:0;
+
 }
 
 hr {
@@ -46,7 +48,6 @@ a {
 .post_header {
 	width: 100%;
 	position: relative;
-	display: block;
 }
 
 .post_subject {
@@ -60,7 +61,6 @@ a {
 .post_created {
 	font-size: .8em;
 	color: #8FBCDB;
-	float: right;
 	position: absolute;
 	bottom: 4px;
 	right: 0px;
@@ -73,7 +73,6 @@ a {
 
 
 #new_post_header {
-
 	font-size: 1.5em;
 }
 
