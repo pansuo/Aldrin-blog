@@ -1,43 +1,45 @@
-<!DOCTYPE html>
+{% extends "blogbase.html" %}
 
-<html>
-
-	<head>
-		<title>Signup Page</title>
-
-	</head>
-
-	<body>
+{% block content %}
 		<form method="post">
-   	 		<div style="font-size: 2em">Signup</div>
-    		<br>
+   	 		<div id="signup_header">Sign Up</div>
+            <br>
+            <table class="signup_table">
+                <tr>
+                    <td class="signup_label">Username</td>
+                    <td class="signup_input"><input type="text" name="username" value="{{username}}"></td>
+                    <td class="signup_error">{{username_error}}</td>
+                </tr>
+               
+                <tr>
+                    <td class="signup_label">Password</td>
+                    <td class="signup_input"><input type="password" name="password"]></td>
+                    <td class="signup_error">{{password_error}}</td>
+                </tr>
+                
+                <tr>
+                    <td class="signup_label">Verify Password</td>
+                    <td class="signup_input"><input type="password" name="verify"]></td>
+                    <td class="signup_error">{{verify_error}}</td>
+                </tr>
+                
+                <tr>
+                    <td class="signup_label">Email (optional)</td>
+                    <td class="signup_input"><input type="text" name="email" value="{{email}}"></td>
+                    <td class="signup_error">{{email_error}}</td>
+                </tr>
+                    <td></td>
+                <tr>
+                </tr>
+                <tr>
+                    <td></td>
+                </tr>
 
-    		<label>Username
-      		<input type="text" name="username" value="{{username}}">
-    		</label>
-    		<span style="color: red">{{username_error}}</span>
-    		<br>
-    		
-    		<label>Password
-        		<input type="password" name="password">
-    		</label>
-    		<span style="color: red">{{password_error}}</span>
-    		<br>
-    		
-    		<label>Verify Password
-        		<input type="password" name="verify">
-    		</label>
-    		<span style="color: red">{{verify_error}}</span>
-    		<br>
-    		
-    		<label>Email (optional)
-        		<input type="text" name="email" value="{{email}}">
-    		</label>
-    		<span style="color: red">{{email_error}}</span>
-    		<br>
-    		
-    		<input type="submit">
+                <tr>
+                    <td></td>
+                    <td class="signup_button"><input type="submit" value="Sign Up"></td>
+                </tr>
+            </table>
 		</form>
-	</body>
-
-</html>
+	
+{% endblock %}
