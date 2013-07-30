@@ -157,12 +157,12 @@ input[type=submit] {
 	border-radius: 3px;
 	border: 1px solid black;
 	font-size: 1em;
+	text-align: center;
 	height: 30px;
 	width: 80px;
 	color: white;
 	background-color: #FF6600;
-	padding-left: 50px;
-	padding-right: 50px; 
+	padding-left: 0 auto;
 	cursor: pointer;
 }
 
