@@ -1,12 +1,6 @@
-# Simple request handler
+# Request handler
 
-import webapp2
-import cgi
-import re
-import jinja2
-import os
-import time
-import datetime
+import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string
 
 from google.appengine.ext import db
 
@@ -14,7 +8,7 @@ template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir), 
                                autoescape = True)
 
-
+# Used to convert UTC to PDT
 class Pacific_tzinfo(datetime.tzinfo):
     """Implementation of the Pacific timezone."""
     def utcoffset(self, dt):
@@ -39,6 +33,7 @@ class Pacific_tzinfo(datetime.tzinfo):
             return "PST"
         else:
             return "PDT"
+
 
 months = ['January', 
           'Februrary', 
@@ -210,6 +205,22 @@ class ROT13Handler(BaseHandler):
             result += chr(letter_int)
         return result
 
+
+def make_salt():
+    return "".join(random.choice(string.letters) for x in range(5))
+
+def make_pw_hash(name, pw, salt=make_salt()):
+    h = hmac.new(str(name + pw)).hexdigest()
+    return h
+
+def validate_pw(name, pw, h):
+    #salt = h.split("|")[1]
+    if make_pw_hash(name, pw) == h:
+        return True
+
+def make_cookie(name, value, h):
+    return '%s=%s|%s; Path=/' % (name, value, h)
+
 class SignupHandler(BaseHandler):
     def get(self):
         self.render('signup-form.html')
@@ -225,20 +236,39 @@ class SignupHandler(BaseHandler):
         user_verify = self.request.get('verify')
         user_email = self.request.get('email')
 
+        hasError = False
+
         if not valid_username(user_username):
             username_error = "Not a valid username."
+            hasError = True
+
+        else:
+            user = db.GqlQuery("SELECT * FROM User WHERE username = :1", user_username).get()
+            if user:
+                username_error = "That username is already taken."
+                user_username = ""
+                hasError = True
 
         if not valid_password(user_password):
             password_error = "Not a valid password."
+            hasError = True
 
         elif user_password != user_verify:
             verify_error = "Passwords don't match"
+            hasError = True
 
         if user_email and not valid_email(user_email):
             email_error = "Not a valid email."
+            hasError = True
 
-        if not (username_error or password_error or verify_error or email_error):
-            self.redirect('/unit2/welcome?username=' + user_username)
+        if not (hasError):
+            h = make_pw_hash(user_username, user_password)
+            user = User(username=user_username, pw_hash=h, email=user_email)
+            user.put()
+            user_id = user.key().id()
+            self.response.headers.add_header('Set-Cookie', make_cookie('user_id', user_id, h))
+            self.redirect('/blog/welcome')
+
         else:
             self.write_form(username=user_username, 
                             email=user_email,
@@ -246,7 +276,6 @@ class SignupHandler(BaseHandler):
                             password_error=password_error, 
                             verify_error=verify_error, 
                             email_error=email_error)
-
 
     def write_form(self, username="", email="", username_error="", password_error="", verify_error="", email_error=""):
         self.render('signup-form.html', username=username, 
@@ -257,13 +286,33 @@ class SignupHandler(BaseHandler):
                                         email_error=email_error
                                         )
 
+class LoginHandler(BaseHandler):
+    def get(self):
+        self.render('login.html')
+
+    def post(self):
+        login_error = ""
+        user_username = self.request.get('username')
+        user_password = self.request.get('password')
+        user = db.GqlQuery("SELECT * FROM User WHERE username = :1", user_username).get()
+        if user and validate_pw(user_username, user_password, user.pw_hash):
+            self.redirect('/blog/welcome')
+        else:
+            self.render('login.html', login_error="Invalid login")
+
+
+
 class WelcomeHandler(BaseHandler):
     def get(self):
-        username = self.request.get('username')
-        if valid_username(username):
-            self.render('welcome.html', username=username)
+        user_id_cookie = self.request.cookies.get("user_id")
+        if user_id_cookie:
+            user_id = user_id_cookie.split("|")[0]
+            user = User.get_by_id(int(user_id))
+        if not user_id_cookie or not user:
+            self.redirect('/blog/signup')
+            return
         else:
-            self.redirect('/unit2/signup')
+            self.render('welcome.html', user=user)
 
 class NewBlogPostHandler(BaseHandler):
     def get(self):
@@ -300,7 +349,10 @@ class BlogPosts(db.Model):
         pst_time = datetime.datetime.fromtimestamp(time.mktime(self.created.timetuple()), Pacific_tzinfo())
         return render_str("post.html", post=self, pst_time=pst_time)
 
-
+class User(db.Model):
+    username = db.StringProperty(required=True)
+    pw_hash = db.StringProperty(required=True)
+    email = db.StringProperty()
 
 
 class PermalinkHandler(BaseHandler):
@@ -323,8 +375,9 @@ application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler),
                                        ('/thanks', ThanksHandler), 
                                        ('/alvin', AlvinHandler), 
                                        ('/unit2/rot13', ROT13Handler), 
-                                       ('/blog/signup', SignupHandler), 
-                                       ('/unit2/welcome', WelcomeHandler), 
+                                       ('/blog/signup', SignupHandler),
+                                       ('/blog/login', LoginHandler),  
+                                       ('/blog/welcome', WelcomeHandler), 
                                        ('/blog', BlogHandler), 
                                        ('/blog/newpost', NewBlogPostHandler), 
                                        ('/blog/([0-9]+)', PermalinkHandler), 

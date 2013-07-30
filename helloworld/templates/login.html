@@ -1,0 +1,39 @@
+<!-- login.html -->
+
+{% extends "blogbase.html" %}
+
+{% block content %}
+	
+	<form method="post">
+		<div class="sub_header">Log In</div>
+		<br>
+		<table class="signup_table">
+            <tr>
+                <td class="signup_label">Username</td>
+                <td class="signup_input"><input type="text" name="username" value="{{username}}"></td>
+                <td class="signup_error">{{login_error}}</td>
+            </tr>
+               
+            <tr>
+                <td class="signup_label">Password</td>
+                <td class="signup_input"><input type="password" name="password"]></td>
+                <td class="signup_error"></td>
+            </tr>	
+
+
+            <tr>
+                <td></td>
+            </tr>
+            <tr>
+                <td></td>
+            </tr>
+            
+            <tr>
+                <td></td>
+                <td class="signup_button"><input type="submit" value="Sign Up"></td>
+            </tr>
+        </table>
+	</form>
+
+
+{% endblock %}
