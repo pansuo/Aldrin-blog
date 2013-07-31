@@ -11,7 +11,7 @@
 	<head>
 
 	<body>
-		
+
 	<div id="main">
 		<a href="/blog"><div id="header">Aldrin's Blog</div></a>
 		
@@ -20,8 +20,12 @@
 			<a href="/blog/newpost"><span class="navbar_link">Post</span></a>
 			<a href="/blog/me"><span class="navbar_link">About Me</span></a>
 			<a href="/"><span class="navbar_link">Links</span></a>
+		{% if user %}
+			<a href="/blog/logout"><span class="navbar_link rightnavbar_link">Log Out</span></a>
+		{% else %}
 			<a href="/blog/signup"><span class="navbar_link rightnavbar_link">Sign Up</span></a>
 			<a href="/blog/login"><span class="navbar_link rightnavbar_link">Log In</span></a>
+		{% endif %}
 		</div>
 
 		<br>

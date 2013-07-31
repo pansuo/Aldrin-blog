@@ -125,12 +125,52 @@ def render_str(template, **params):
     return t.render(params)
 
 
+
+
+def make_salt():
+    return "".join(random.choice(string.letters) for x in range(5))
+
+def make_pw_hash(name, pw, salt=make_salt()):
+    h = hmac.new(str(name + pw)).hexdigest()
+    return h
+
+def validate_pw(name, pw, h):
+    #salt = h.split("|")[1]
+    if make_pw_hash(name, pw) == h:
+        return True
+
+def make_cookie(name, value, h=""):
+    return '%s=%s|%s; Path=/' % (name, value, h)
+
+
 class BaseHandler(webapp2.RequestHandler):
     def write(self, *a, **kw):
         self.response.out.write(*a, **kw)
 
     def render(self, template, **kw):
-        self.write(render_str(template, **kw))
+        if self.logged_in():
+            user = User.get_by_id(int(self.get_cookie("user_id").split("|")[0]))
+            self.write(render_str(template, user=user, **kw))
+        else:
+            self.write(render_str(template, **kw))
+
+    def logged_in(self):
+        return self.validate_cookie(self.get_cookie("user_id"))
+
+    def get_cookie(self, name):
+        return self.request.cookies.get(name)
+
+    def validate_cookie(self, cookie):
+        user_id_cookie = self.get_cookie("user_id")
+        if user_id_cookie:
+            user_id = user_id_cookie.split("|")[0]
+            pw_hash = user_id_cookie.split("|")[1]
+            if user_id:
+                user = User.get_by_id(int(user_id))
+                if user.pw_hash == pw_hash:
+                    return True
+
+
 
 class PersonalWebsiteHandler(BaseHandler):
     def get(self):
@@ -205,21 +245,6 @@ class ROT13Handler(BaseHandler):
             result += chr(letter_int)
         return result
 
-
-def make_salt():
-    return "".join(random.choice(string.letters) for x in range(5))
-
-def make_pw_hash(name, pw, salt=make_salt()):
-    h = hmac.new(str(name + pw)).hexdigest()
-    return h
-
-def validate_pw(name, pw, h):
-    #salt = h.split("|")[1]
-    if make_pw_hash(name, pw) == h:
-        return True
-
-def make_cookie(name, value, h):
-    return '%s=%s|%s; Path=/' % (name, value, h)
 
 class SignupHandler(BaseHandler):
     def get(self):
@@ -300,11 +325,15 @@ class LoginHandler(BaseHandler):
         else:
             self.render('login.html', login_error="Invalid login")
 
+class LogoutHandler(BaseHandler):
+    def get(self):
+        self.response.headers.add_header('Set-Cookie', make_cookie('user_id', ""))
+        self.redirect('/blog/signup')
 
 
 class WelcomeHandler(BaseHandler):
     def get(self):
-        user_id_cookie = self.request.cookies.get("user_id")
+        user_id_cookie = self.get_cookie("user_id")
         if user_id_cookie:
             user_id = user_id_cookie.split("|")[0]
             user = User.get_by_id(int(user_id))
@@ -312,7 +341,7 @@ class WelcomeHandler(BaseHandler):
             self.redirect('/blog/signup')
             return
         else:
-            self.render('welcome.html', user=user)
+            self.render('welcome.html')
 
 class NewBlogPostHandler(BaseHandler):
     def get(self):
@@ -376,6 +405,7 @@ application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler),
                                        ('/alvin', AlvinHandler), 
                                        ('/unit2/rot13', ROT13Handler), 
                                        ('/blog/signup', SignupHandler),
+                                       ('/blog/logout', LogoutHandler),
                                        ('/blog/login', LoginHandler),  
                                        ('/blog/welcome', WelcomeHandler), 
                                        ('/blog', BlogHandler), 
