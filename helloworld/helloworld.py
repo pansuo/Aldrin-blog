@@ -1,6 +1,6 @@
 # Request handler
 
-import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string
+import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string, secret
 
 from google.appengine.ext import db
 
@@ -136,7 +136,7 @@ def make_pw_hash(name, pw, salt=make_salt()):
 
 def validate_pw(name, pw, h):
     #salt = h.split("|")[1]
-    if make_pw_hash(name, pw) == h:
+    if make_pw_hash(name, pw, secret.secretstr) == h:
         return True
 
 def make_cookie(name, value, h=""):
@@ -248,7 +248,10 @@ class ROT13Handler(BaseHandler):
 
 class SignupHandler(BaseHandler):
     def get(self):
-        self.render('signup-form.html')
+        if self.logged_in():
+            self.redirect('/blog')
+        else:
+            self.render('signup-form.html')
 
     def post(self):
         username_error = ""
@@ -313,7 +316,10 @@ class SignupHandler(BaseHandler):
 
 class LoginHandler(BaseHandler):
     def get(self):
-        self.render('login.html')
+        if self.logged_in():
+            self.redirect('/blog')
+        else:
+            self.render('login.html')
 
     def post(self):
         login_error = ""

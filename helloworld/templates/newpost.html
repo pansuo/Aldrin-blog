@@ -3,6 +3,8 @@
 {% extends "blogbase.html" %}
 
 {% block content %}
+
+	{% if user %}	
 		<form method="post">
 			<div class="sub_header">New Post</div>
 			<br>
@@ -25,6 +27,9 @@
 			{% endif %}
 			<input type="submit" value="Post">
 		</form>
+	{% else %}
+		<div style="color: red">You are not logged in.</div>
+	{% endif %}
 
 {% endblock %}
 
