@@ -168,3 +168,15 @@ input[type=submit]:hover {
 	background-color: #FF7C1F;
 }
 
+.location {
+	font-weight: bold;
+}
+
+#welcome {
+	margin: 0 auto;
+}
+
+.post_image {
+	display: none;
+}
+
