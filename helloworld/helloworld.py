@@ -1,6 +1,12 @@
 # Request handler
 
-import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string, secret
+import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string, secret, sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'libs'))
+
+from geopy import geocoders
+from geopy import distance
+
+g = geocoders.GoogleV3()
 
 from google.appengine.ext import db
 
@@ -124,9 +130,6 @@ def render_str(template, **params):
     t = jinja_env.get_template(template)
     return t.render(params)
 
-
-
-
 def make_salt():
     return "".join(random.choice(string.letters) for x in range(5))
 
@@ -141,7 +144,6 @@ def validate_pw(name, pw, h):
 
 def make_cookie(name, value, h=""):
     return '%s=%s|%s; Path=/' % (name, value, h)
-
 
 class BaseHandler(webapp2.RequestHandler):
     def write(self, *a, **kw):
@@ -167,10 +169,8 @@ class BaseHandler(webapp2.RequestHandler):
             pw_hash = user_id_cookie.split("|")[1]
             if user_id:
                 user = User.get_by_id(int(user_id))
-                if user.pw_hash == pw_hash:
+                if user and user.pw_hash == pw_hash:
                     return True
-
-
 
 class PersonalWebsiteHandler(BaseHandler):
     def get(self):
@@ -206,7 +206,6 @@ class MainPage(BaseHandler):
             self.redirect("/thanks")
 
         #self.response.headers['Content-Type'] = 'text/plain'
-        #self.response.write(self.request)
 
 class ThanksHandler(BaseHandler):
     def get(self):
@@ -244,7 +243,6 @@ class ROT13Handler(BaseHandler):
                     letter_int += 96
             result += chr(letter_int)
         return result
-
 
 class SignupHandler(BaseHandler):
     def get(self):
@@ -285,13 +283,18 @@ class SignupHandler(BaseHandler):
             verify_error = "Passwords don't match"
             hasError = True
 
-        if user_email and not valid_email(user_email):
-            email_error = "Not a valid email."
+        if user_email: # and not valid_email(user_email):
+            if not user_email == secret.invitecode:
+                email_error = "Not a valid email."
+                hasError = True         
+
+        else:
+            email_error = "Not authorized to sign up."
             hasError = True
 
         if not (hasError):
             h = make_pw_hash(user_username, user_password)
-            user = User(username=user_username, pw_hash=h, email=user_email)
+            user = User(username=user_username, pw_hash=h, email="")
             user.put()
             user_id = user.key().id()
             self.response.headers.add_header('Set-Cookie', make_cookie('user_id', user_id, h))
@@ -327,6 +330,7 @@ class LoginHandler(BaseHandler):
         user_password = self.request.get('password')
         user = db.GqlQuery("SELECT * FROM User WHERE username = :1", user_username).get()
         if user and validate_pw(user_username, user_password, user.pw_hash):
+            self.response.headers.add_header('Set-Cookie', str(make_cookie('user_id', user.key().id(), user.pw_hash)))            
             self.redirect('/blog/welcome')
         else:
             self.render('login.html', login_error="Invalid login")
@@ -336,18 +340,19 @@ class LogoutHandler(BaseHandler):
         self.response.headers.add_header('Set-Cookie', make_cookie('user_id', ""))
         self.redirect('/blog/signup')
 
-
 class WelcomeHandler(BaseHandler):
     def get(self):
-        user_id_cookie = self.get_cookie("user_id")
-        if user_id_cookie:
-            user_id = user_id_cookie.split("|")[0]
-            user = User.get_by_id(int(user_id))
-        if not user_id_cookie or not user:
+        if not self.logged_in():
             self.redirect('/blog/signup')
-            return
         else:
             self.render('welcome.html')
+
+class GetImageHandler(BaseHandler):
+    def get(self):
+        post = BlogPosts.get_by_id(int(self.request.get("entity_id")))
+        if post.picture:
+            self.response.headers['Content-Type'] = "image/png"
+            self.write(post.picture)
 
 class NewBlogPostHandler(BaseHandler):
     def get(self):
@@ -356,15 +361,34 @@ class NewBlogPostHandler(BaseHandler):
     def post(self):
         user_subject = self.request.get('subject')
         user_content = self.request.get('content')
+        user_location = self.request.get('location')
+        user_address = self.request.get('address')
+        user_picture = self.request.get('picture').encode('utf-8')
+
         if not (user_subject and user_content):
-            error_message = "Please enter a title and content"
-            self.render('newpost.html', subject=user_subject, content=user_content, error_message=error_message)
+            error_message = "Please enter a subject and content"
+            self.render('newpost.html', 
+                        subject=user_subject, 
+                        content=user_content, 
+                        location=user_location,
+                        address=user_address,  
+                        error_message=error_message, 
+                        )
         else:
-            blog_post = BlogPosts(subject=user_subject, content=user_content)
+            if user_address:
+                _, coords = g.geocode(user_address, exactly_one=True) 
+                user_coords = "%s, %s" % coords
+
+            blog_post = BlogPosts(subject=user_subject, 
+                                  content=user_content, 
+                                  location=user_location, 
+                                  address=user_address, 
+                                  picture=user_picture, 
+                                  coords=user_coords)
             blog_post.put()
             post_id = str(blog_post.key().id())
-            self.redirect('/blog')
-            #self.redirect('/blog/%s' % post_id)
+            #self.redirect('/blog')
+            self.redirect('/blog/%s' % post_id)
 
 class BlogHandler(BaseHandler):
     def render_front(self, blog_posts=""):
@@ -378,6 +402,10 @@ class BlogPosts(db.Model):
     subject = db.StringProperty(required = True)
     content = db.TextProperty(required = True)
     created = db.DateTimeProperty(auto_now_add = True)
+    picture = db.BlobProperty()
+    location = db.StringProperty()
+    address = db.StringProperty()
+    coords = db.GeoPtProperty()
 
     def render(self):
         self._render_text = self.content.replace('\n', '<br>')
@@ -388,7 +416,6 @@ class User(db.Model):
     username = db.StringProperty(required=True)
     pw_hash = db.StringProperty(required=True)
     email = db.StringProperty()
-
 
 class PermalinkHandler(BaseHandler):
     def get(self, post_id):
@@ -417,5 +444,6 @@ application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler),
                                        ('/blog', BlogHandler), 
                                        ('/blog/newpost', NewBlogPostHandler), 
                                        ('/blog/([0-9]+)', PermalinkHandler), 
-                                       ('/blog/me', AboutMeHandler)
+                                       ('/blog/me', AboutMeHandler), 
+                                       ('/img', GetImageHandler)
                                       ], debug=True)
