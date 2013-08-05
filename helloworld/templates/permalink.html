@@ -4,13 +4,14 @@
 {% block content %}
 
 	{{ post.render() | safe }}
+{% if user %}
 	<div class="delete">
 		<form  method="post">
 			<input style="display: none;" type="text" name="post_id" value="{{post.key().id()}}">
 			<input class="post_delete_button" type="submit" value="Delete">
 		</form>
 	</div>
-
+{% endif %}
 	<div class="query_time">
 		Queried {{last_queried}} seconds ago
 	</div>		

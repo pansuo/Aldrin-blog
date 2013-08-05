@@ -1,15 +1,14 @@
-# Request handler
+# Request handlers for http://helloworld-aldrin.appspot.com
 
-import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string, secret, sys, json, logging
+import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string, secret, sys, json, logging, email
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'libs'))
-
-import email
 
 from geopy import geocoders
 from geopy import distance
 g = geocoders.GoogleV3()
 
 from google.appengine.api import memcache
+from google.appengine.api import mail
 from google.appengine.ext import db
 from google.appengine.ext import blobstore
 from google.appengine.ext.webapp import blobstore_handlers
@@ -19,16 +18,21 @@ template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir), 
                                autoescape = True)
 
+# Handler for incoming mail
 class IncomingEmailHandler(InboundMailHandler):
     subject_prefix = "[blog] "
     address_prefix = "Address: "
     location_prefix = "Location: "
     content_prefix = "Content: "
 
+    # When email is received, the email is automatically parsed for subject, location, address, content, and picture input
+    # If input is valid, the data will be stored into the database and automatically posted to the blog
     def receive(self, mail_message):
         logging.error("Received message from %s" % mail_message.sender)
 
-
+        # Get email subject. Subject must start with the subject prefix to be valid
+        if not hasattr(mail_message, 'subject'):
+            return 
         email_subject = mail_message.subject
         logging.error("subject = " + email_subject)
         if not email_subject.startswith(self.subject_prefix):
@@ -36,25 +40,70 @@ class IncomingEmailHandler(InboundMailHandler):
         else:
             email_subject = email_subject.replace(self.subject_prefix, "")
 
-
+        # Get email body
         plaintext_bodies = mail_message.bodies('text/plain')
-        email_body = ""
+        email_body = None
         for y, x in plaintext_bodies:
             email_body = x.decode()
             logging.error("body = " + x.decode())
+            break
 
+        # Parse the email body for location, address, and content
         email_dict = self.parse_body(email_body)
+        logging.error("parsed body")
 
+        # If no content text, not valid post
+        if 'content' not in email_dict:
+            pass
+        logging.error("checked for content")
+        # If no location but address is present, location = address
+        if not email_dict['location'] and email_dict['address']:
+            email_dict['location'] = email_dict['address'] 
+        logging.error("location = address")
+        # Given the address in the email, get gps coordinates
+        logging.error("parsed get coords")        
+        user_coords = None
+        try:
+            if email_dict['address']:
+                for _, coord in g.geocode(email_dict['address'], exactly_one=False):
+                    coords = coord
+                    break
+                if coords:
+                    user_coords = "%s, %s" % coords
+        except: # exception if coordinates not found
+            user_coords = None
 
+        # Get email attachment
+        user_picture = ""
+        logging.error(dir(mail_message))
+        if hasattr(mail_message, 'attachments'):
+            logging.error("GOT EMAIL ATTACHMENT")
+            for filename, contents in mail_message.attachments:
+                logging.error(filename.decode())
+                user_picture = db.Blob(contents.decode())
+                break
+        else:
+            user_picture = ""
+
+        # Put contents into Blogposts object
         blog_post = BlogPosts(subject=email_subject, 
-                              content=email_dict['content'], 
+                              content=email_dict['content'],
                               location=email_dict['location'], 
+                              address=email_dict['address'], 
+                              coords=user_coords, 
+                              picture=user_picture
                             )
+
+        # Send post to database and flush memcache
         blog_post.put()
         memcache.flush_all()
 
+    # Parses the email body to find location, address, and content. Returns a dictionary.
     def parse_body(self, message):
-        body_dict = {}
+        body_dict = {'location': "", 
+                     'address': "", 
+                     'content': ""
+                     }
         body_parts = message.replace("\r", "").split("\n")
         for part in body_parts:
             if part.startswith(self.location_prefix):
@@ -93,83 +142,12 @@ class Pacific_tzinfo(datetime.tzinfo):
         else:
             return "PDT"
 
-
-months = ['January', 
-          'Februrary', 
-          'March', 
-          'April', 
-          'May', 
-          'June', 
-          'July', 
-          'August', 
-          'September', 
-          'October', 
-          'November',
-          'December']
-
-month_abbvs = dict((m[:3].lower(), m) for m in months)
-
-def valid_month(month):
-    if month:
-        if month.isdigit():
-            month = int(month)
-            if month >= 1 and month <= 12:
-                return months[month-1]
-        else:
-            short_month = month[:3].lower()
-            if short_month in month_abbvs:
-                return month_abbvs.get(short_month)
-
-def valid_day(day):
-    if day and day.isdigit():
-        day = int(day)
-        if day >= 1 and day <= 31:
-            return day
-
-def valid_year(year):
-    if year and year.isdigit():
-        year = int(year)
-        if year >= 1900 and year <= 2020:
-            return year
-
-def escape_html(s):
-    return cgi.escape(s, quote = True)
-
-
-form = """
-<form method="post">
-    Hi, what is your birthday?
-    <br>
-    <label>Month
-        <input type="text" name="Month" value=%(month)s>
-    </label>
-
-    <label>Day
-        <input type="text" name="Day" value=%(day)s>
-    </label>
-
-    <label>Year
-        <input type="text" name="Year" value=%(year)s>
-    </label>
-    <br>
-    <div style="color: red">%(error)s</div>
-    <input type="submit">
-</form>
-"""
-
-alvin_picture = """
-<div>LOL HI ALVIN</div>
-<img src="https://raw.github.com/aldrinagana/Snake/master/Snake/lol.jpg" />
-"""
-
-Thanks_message = """
-Thanks! That is a valid day!
-"""
-
+# Regular expressions for username, password, and email
 USERNAME_RE = re.compile(r"^[a-zA-Z0-9_-]{3,20}$")
 PASSWORD_RE = re.compile(r"^.{3,20}$")
 EMAIL_RE = re.compile(r"^[\S]+@[\S]+\.[\S]+$")
 
+# self-explanatory...
 def valid_username(username):
     return USERNAME_RE.match(username)
 
@@ -179,26 +157,34 @@ def valid_password(password):
 def valid_email(email):
     return EMAIL_RE.match(email)
 
+# Renders string in html
 def render_str(template, **params):
     t = jinja_env.get_template(template)
     return t.render(params)
 
+# makes salt for password hashing
 def make_salt():
     return "".join(random.choice(string.letters) for x in range(5))
 
+# Returns password hash string
 def make_pw_hash(name, pw, salt=make_salt()):
     h = hmac.new(str(name + pw)).hexdigest()
     return h
 
+# Hashes name and pw and returns True if hash(name, pw) == h
 def validate_pw(name, pw, h):
     #salt = h.split("|")[1]
     if make_pw_hash(name, pw, secret.secretstr) == h:
         return True
 
+# Makes a cookie with name, value, and secure hash
 def make_cookie(name, value, h=""):
     return '%s=%s|%s; Path=/' % (name, value, h)
 
+# Base handler for the entire website. Does cool stuff.
 class BaseHandler(webapp2.RequestHandler):
+
+    # Checks to see if the user is logged in or if usr is requesting html or json
     def initialize(self, *a, **kw):
         webapp2.RequestHandler.initialize(self, *a, **kw)
         if self.logged_in():
@@ -209,9 +195,11 @@ class BaseHandler(webapp2.RequestHandler):
         else:
             self.format = 'html'
 
+    # writes stuff
     def write(self, *a, **kw):
         self.response.out.write(*a, **kw)
 
+    # Renders html and sends data so template can read it
     def render(self, template, **kw):
         if self.logged_in():
             user = User.get_by_id(int(self.get_cookie("user_id").split("|")[0]))
@@ -219,17 +207,21 @@ class BaseHandler(webapp2.RequestHandler):
         else:
             self.write(render_str(template, **kw))
 
+    # Renders json page using the d object
     def render_json(self, d):
         self.response.headers['Content-Type'] = 'application/json; charset=UTF-8'
         json_txt = json.dumps(d)
         self.write(json_txt)
 
+    # Returns true if user is logged in
     def logged_in(self):
         return self.validate_cookie(self.get_cookie("user_id"))
 
+    # Gets cookie with name = name
     def get_cookie(self, name):
         return self.request.cookies.get(name)
 
+    # Returns true if the user's cookie is a valid cookie. Checks if id and pw_hash match.
     def validate_cookie(self, cookie):
         user_id_cookie = self.get_cookie("user_id")
         if user_id_cookie:
@@ -241,91 +233,31 @@ class BaseHandler(webapp2.RequestHandler):
                     return True
 
 
+# Handler for '/'
+# Home Page
 class PersonalWebsiteHandler(BaseHandler):
     def get(self):
         self.render('aldrinagana.html')
 
-class MainPage(BaseHandler):
-    def write_form(self, error="", month="", day="", year=""):
-        self.response.write(form % {'error': error, 
-                                    'month': escape_html(month),
-                                    'day': escape_html(day), 
-                                    'year': escape_html(year)
-                                    })
-
-    def get(self):
-        #self.response.headers['Content-Type'] = 'text/plain'
-        self.write_form()
-
-    def post(self):
-        user_month = self.request.get('Month')
-        user_day = self.request.get('Day')
-        user_year = self.request.get('Year')
-
-        month = valid_month(user_month)
-        day = valid_day(user_day)
-        year = valid_year(user_year)
-
-        if month == "April" and day == 14 and year == 1999:
-            self.redirect("/alvin")
-        elif not (month and day and year):
-            self.write_form("That is an invalid day!", user_month, user_day, user_year)
-        
-        else:
-            self.redirect("/thanks")
-
-        #self.response.headers['Content-Type'] = 'text/plain'
-
-class ThanksHandler(BaseHandler):
-    def get(self):
-        self.response.write(Thanks_message)
-
-class AlvinHandler(BaseHandler):
-    def get(self):
-        self.response.write(alvin_picture)
-
-class ROT13Handler(BaseHandler):
-    def get(self):
-        self.render('rot13-form.html')
-
-    def post(self):
-        user_text = self.request.get('text')
-        rot13_text = self.rot13(user_text)
-        self.write_form(rot13_text)
-
-    def write_form(self, text=""):
-        self.render('rot13-form.html', text=text)
-
-    def rot13(self, s):
-        result = ""
-        for letter in s:
-            letter_int = ord(letter)
-            if letter_int >= 65 and letter_int <= 90:
-                letter_int += 13
-                if letter_int > 90:
-                    letter_int %= 90
-                    letter_int += 64
-            elif letter_int >= 97 and letter_int <= 122:
-                letter_int += 13
-                if letter_int > 122:
-                    letter_int %= 122
-                    letter_int += 96
-            result += chr(letter_int)
-        return result
-
+# Handler for '/signup'
+# Sign up page
 class SignupHandler(BaseHandler):
+    # Renders signup page, if user is already logged in, redirect to blog
     def get(self):
         if self.logged_in():
             self.redirect('/blog')
         else:
             self.render('signup-form.html')
 
+    # Evaluates signup form submitted by user
     def post(self):
+        # Initialize error strings
         username_error = ""
         password_error = ""
         verify_error = ""
         email_error = ""
 
+        # Get values from form
         user_username = self.request.get('username')
         user_password = self.request.get('password')
         user_verify = self.request.get('verify')
@@ -333,39 +265,46 @@ class SignupHandler(BaseHandler):
 
         hasError = False
 
+        # Validate username
         if not valid_username(user_username):
             username_error = "Not a valid username."
             hasError = True
-
-        else:
+        else: # Check if user name is already taken
             user = db.GqlQuery("SELECT * FROM User WHERE username = :1", user_username).get()
             if user:
                 username_error = "That username is already taken."
                 user_username = ""
                 hasError = True
 
+        # Validate password and make sure they match
         if not valid_password(user_password):
             password_error = "Not a valid password."
             hasError = True
-
         elif user_password != user_verify:
             verify_error = "Passwords don't match"
             hasError = True
 
+        # Email is optional. Validate it.
         if user_email: # and 
             if not valid_email(user_email): # and not user_email == secret.invitecode:
                 email_error = "Not a valid email."
                 hasError = True         
 
-
+        # If no errors...
         if not (hasError):
+            # Hash username and password and store into database
             h = make_pw_hash(user_username, user_password)
             user = User(username=user_username, pw_hash=h, email="")
             user.put()
+
+            # Set the user's cookie 
             user_id = user.key().id()
             self.response.headers.add_header('Set-Cookie', make_cookie('user_id', user_id, h))
+
+            # Redirect to welcome page
             self.redirect('/blog/welcome')
 
+        # There are errors...rewrite the form with the error messages and input values
         else:
             self.write_form(username=user_username, 
                             email=user_email,
@@ -374,6 +313,7 @@ class SignupHandler(BaseHandler):
                             verify_error=verify_error, 
                             email_error=email_error)
 
+    # Writes the signup form
     def write_form(self, username="", email="", username_error="", password_error="", verify_error="", email_error=""):
         self.render('signup-form.html', username=username, 
                                         email=email, 
@@ -383,59 +323,94 @@ class SignupHandler(BaseHandler):
                                         email_error=email_error
                                         )
 
+# Handler for '/blog/login'
+# Login page
 class LoginHandler(BaseHandler):
+    # Render login page. If already logged in, redirect to blog
     def get(self):
         if self.logged_in():
             self.redirect('/blog')
         else:
             self.render('login.html')
 
+    # Evaluate login form
     def post(self):
+        # Initialize error and get entered username and password
         login_error = ""
         user_username = self.request.get('username')
         user_password = self.request.get('password')
+
+        # Attempt to get user information from database. If succeed, validate password, set cookie, and redirect to welcome
         user = db.GqlQuery("SELECT * FROM User WHERE username = :1", user_username).get()
         if user and validate_pw(user_username, user_password, user.pw_hash):
             self.response.headers.add_header('Set-Cookie', str(make_cookie('user_id', user.key().id(), user.pw_hash)))            
             self.redirect('/blog/welcome')
+
+        # login failed, render form again 
         else:
             self.render('login.html', login_error="Invalid login")
 
+# Handler for '/blog/logout'
+# Logout page
 class LogoutHandler(BaseHandler):
+    # Erase user cookie. That's it.
     def get(self):
         self.response.headers.add_header('Set-Cookie', make_cookie('user_id', ""))
         self.redirect('/blog/signup')
 
+# Handler for '/blog/welcome'
+# Welcome page
 class WelcomeHandler(BaseHandler):
+    # If not logged in, redirect to signup lage. Otherwise, show welcome page.
     def get(self):
         if not self.logged_in():
             self.redirect('/blog/signup')
         else:
             self.render('welcome.html')
 
+# Handler for '/img'
+# Image pages for pictures
 class GetImageHandler(BaseHandler):
+    # Print picture
     def get(self):
-        post = BlogPosts.get_by_id(int(self.request.get("entity_id")))
-        if post and post.picture:
-            self.response.headers['Content-Type'] = "image/jpeg"
-            self.write(post.picture)
-        else:
-            self.write("no picture")
+        # Set response header so browser knows it's a picture
+        self.response.headers['Content-Type'] = "image/jpeg"
 
+        # Get id from url 
+        entity_id = self.request.get("entity_id")
+
+        # Find the picture in the cache
+        key = "img_" + entity_id
+        picture = memcache.get(key)
+
+        # Print the picture. If not in cache, get picture and store in cache.
+        if picture == None:
+            post = BlogPosts.get_by_id(int(entity_id))
+            if post and post.picture:
+                self.write(post.picture)
+                memcache.set(key, post.picture)
+            else:
+                self.write("no picture")
+        else:
+            self.write(picture)
+
+# Handler for '/blog/newpost'
+# New Post Page
 class NewBlogPostHandler(BaseHandler):
+    # Render the new post page
     def get(self):
-        upload_url = blobstore.create_upload_url('/upload')
         self.render('newpost.html')
 
+    # Evaluate new post form
     def post(self):
+        # Get values from submitted form
         user_subject = self.request.get('subject')
         user_content = self.request.get('content')
         user_location = self.request.get('location')
         user_address = self.request.get('address')
-        #user_picture = self.request.get('picture').encode('utf-8')
         user_picture = db.Blob(self.request.get('picture'))
 
-
+        # Subject and content required. If not present, print error and re-render
         if not (user_subject and user_content):
             error_message = "Please enter a subject and content."
             self.render('newpost.html', 
@@ -445,7 +420,10 @@ class NewBlogPostHandler(BaseHandler):
                         address=user_address,  
                         error_message=error_message, 
                         )
+
+        # So far so good...    
         else:
+            # Given the address, try to find the gps coordinates of it.
             user_coords = None
             try:
                 if user_address:
@@ -454,23 +432,25 @@ class NewBlogPostHandler(BaseHandler):
                         break
                 if coords:
                     user_coords = "%s, %s" % coords
+
+            # No coordinates found, address invalid, print error and re-render form
             except:
                 user_coords = None
-                if user_address:
-                    error_message = "Address not found."
-                    self.render('newpost.html', 
-                                subject=user_subject, 
-                                content=user_content, 
-                                location=user_location,
-                                address=user_address,  
-                                error_message=error_message, 
-                                )
-                    return                
+                error_message = "Address not found."
+                self.render('newpost.html', 
+                            subject=user_subject, 
+                            content=user_content, 
+                            location=user_location,
+                            address=user_address,  
+                            error_message=error_message, 
+                            )
+                return                
 
-
+            # If address is present but no location name, location = name
             if user_coords and not user_location:
                 user_location = user_address
 
+            # Store data into blog post object, put into database and flush the cache
             blog_post = BlogPosts(subject=user_subject, 
                                   content=user_content, 
                                   location=user_location, 
@@ -479,11 +459,17 @@ class NewBlogPostHandler(BaseHandler):
                                   coords=user_coords)
             blog_post.put()
             memcache.flush_all()
+            
+            # Redirect to permalind page of the post...or back to the blog
             post_id = str(blog_post.key().id())
             #self.redirect('/blog')
             self.redirect('/blog/%s' % post_id)
 
+
+# Handler for '/blog/places'
+# Places page
 class PlacesHandler(BaseHandler):
+    # Get posts from database, for each set of coordinates, add it to the url, render picture
     def get(self):
         image_url="http://maps.googleapis.com/maps/api/staticmap?center=Fremont,CA&zoom=9&scale=1&visual_refresh=true&size=600x600&sensor=false"
         posts = db.GqlQuery("SELECT * FROM BlogPosts")
@@ -492,11 +478,15 @@ class PlacesHandler(BaseHandler):
                 image_url += "&markers=" + str(post.coords)
         self.render('places.html', image_url=image_url)
 
+# Handler for '/blog'
+# Main blog page
 class BlogHandler(BaseHandler):
+    # Render the top most recent posts. Print when the database was last queried.
     def render_front(self, blog_posts=""):
         posts, last_queried = BlogPosts.top_posts()
         self.render('blog.html', blog_posts=posts, last_queried=(datetime.datetime.utcnow() - last_queried).total_seconds())
 
+    # if requesting json, print the json, otherwise print the html
     def get(self):
         if self.format == 'json':
             posts = BlogPosts.top_posts()
@@ -504,7 +494,9 @@ class BlogHandler(BaseHandler):
         else:
             self.render_front()
 
+# Datastore object for a blog post
 class BlogPosts(db.Model):
+    # Subject and content are required, 'created' is the created time, everything else is optional
     subject = db.StringProperty(required=True)
     content = db.TextProperty(required=True)
     created = db.DateTimeProperty(auto_now_add=True)
@@ -513,11 +505,13 @@ class BlogPosts(db.Model):
     address = db.StringProperty()
     coords = db.GeoPtProperty()
 
+    # Renders the individual html for each post.
     def render(self):
         self._render_text = self.content.replace('\n', '<br>')
         pst_time = datetime.datetime.fromtimestamp(time.mktime(self.created.timetuple()), Pacific_tzinfo())
         return render_str("post.html", post=self, pst_time=pst_time)
 
+    # Returns the post in the form of a dictionary, to be later converted to json
     def as_dict(self):
         time_fmt = "%c"
         d = {'subject' : self.subject, 
@@ -529,9 +523,11 @@ class BlogPosts(db.Model):
             }
         return d
 
+    # Returns a tuple of the top posts and the time that the database was last queried
     @staticmethod
     def top_posts(update=False):
-        key = 'topa'
+        # Gets posts from memcache, if not in memcache, query db and store result in memcache
+        key = 'top'
         x = memcache.get(key)
         if x:
             posts, last_queried = x
@@ -545,6 +541,7 @@ class BlogPosts(db.Model):
             memcache.set(key, (posts, last_queried))
         return posts, last_queried
 
+    # Returns a tuple of the post and last queried time, given the post_id
     @staticmethod
     def get_post(post_id):
         key = str(post_id)
@@ -560,13 +557,17 @@ class BlogPosts(db.Model):
             memcache.set(key, (post, last_queried))
         return post, last_queried
 
-
+# Datastore object for a User
 class User(db.Model):
+    # username and encrypted password required, email optional
     username = db.StringProperty(required=True)
     pw_hash = db.StringProperty(required=True)
     email = db.StringProperty()
 
+# Handler for '/blog/([0-9]+)(?:\.json)?'
+# Permalink page for each post
 class PermalinkHandler(BaseHandler):
+    # Get the post with the given post_id 
     def get(self, post_id):
         blog_post, last_queried = BlogPosts.get_post(post_id)
         if blog_post:
@@ -577,6 +578,8 @@ class PermalinkHandler(BaseHandler):
         else:
             self.error(404)
 
+    # Called when delete button is pressed
+    # Delete post, fush cache, and redirect to blog
     def post(self, post_id):
         blog_post, _ = BlogPosts.get_post(post_id)
         blog_post.delete()
@@ -584,28 +587,23 @@ class PermalinkHandler(BaseHandler):
         self.redirect('/blog/flush')
         self.redirect('/blog')
 
+# Handler for '/blog/aboutme'
+# About Me Page
 class AboutMeHandler(BaseHandler):
     def get(self):
-        self.render_posts()
+        self.render('me.html')
 
-    def render_posts(self, blog_posts=""):
-        posts = db.GqlQuery("SELECT * FROM BlogPosts ORDER BY created DESC")
-        self.render('me.html', blog_posts=posts)
-
+# Handler for '/blog/flush'
+# Page to manually flush the cache
 class FlushHandler(BaseHandler):
+    # Fush cache and redirect to blog
     def get(self):
         memcache.flush_all()
         self.redirect('/blog')
 
-class EmailHandler(BaseHandler):
-    def get(self):
-        self.write("Email")
-        posts = getmail.update()
-
+# All mappings of the entire website.
+# Each tuple is made up of the url suffix and it's corresponding handler
 application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler), 
-                                       ('/thanks', ThanksHandler), 
-                                       ('/alvin', AlvinHandler), 
-                                       ('/unit2/rot13', ROT13Handler), 
                                        ('/blog/signup', SignupHandler),
                                        ('/blog/logout', LogoutHandler),
                                        ('/blog/login', LoginHandler),  
@@ -617,6 +615,5 @@ application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler),
                                        ('/blog/me', AboutMeHandler),
                                        ('/blog/flush', FlushHandler),  
                                        ('/img', GetImageHandler), 
-                                       ('/blog/emailupdate', EmailHandler), 
                                         IncomingEmailHandler.mapping()
                                       ], debug=True)

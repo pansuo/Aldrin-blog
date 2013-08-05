@@ -24,7 +24,6 @@ handlers:
 inbound_services:
 - mail
 
-
 libraries:                                                                      
 - name: jinja2                                                                  
   version: latest                                                               
