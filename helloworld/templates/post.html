@@ -4,25 +4,37 @@
 
 	<br>
 	<div class="post_header">
-		<a href="/blog/{{post.key().id()}}"><span class="post_subject">{{post.subject}}</span></a>
-		<span class="post_created">{{pst_time.strftime("%b %d, %Y %r")}}</span>
+		<a href="/blog/{{post.key().id()}}">
+			<span class="post_subject">
+				{{post.subject}}
+			</span>
+		</a>
+		<span class="post_created">
+			{{pst_time.strftime("%b %d, %Y %r")}}
+		</span>
 		<hr>	
 	</div>
 
-{% if post.location %}
-	<a href="#" class="location_link"><div class="location">Location: {{post.location}}</div></a>
+{% if post.coords %}
+	<div class="location">
+		Location: {{post.location}}
+	</div>
+	<img class="post_image" src="http://maps.googleapis.com/maps/api/staticmap?markers={{post.coords}}&zoom=13&visual_refresh=true&size=300x300&sensor=false">
+{% elif post.location %}
+	<span class="location_no_link">
+		Location: {{post.location}}
+	</span>
 {% endif %}
-
-<!--
-{% if post.picture %}
-	<img src="/img?entity_id={{post.key().id()}}" height="100px" width="200px">
-{% endif %} -->
 
 	<pre class="post_content">{{ post._render_text | safe }}</pre>
 
-{% if post.coords %}
-	<img class="post_image" src="http://maps.googleapis.com/maps/api/staticmap?markers={{post.coords}}&zoom=14&size=300x300&sensor=false">
-{% endif %}
+{% if post.picture %}
+	<a href="/img?entity_id={{post.key().id()}}">
+		<img class="post_picture" src="/img?entity_id={{post.key().id()}}">
+	</a>
+	<br>
+{% endif %} 
+
 	<br>
 	
 </div>

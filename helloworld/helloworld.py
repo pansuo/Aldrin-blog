@@ -1,14 +1,17 @@
 # Request handler
 
-import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string, secret, sys
+import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string, secret, sys, json, logging
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'libs'))
+
 
 from geopy import geocoders
 from geopy import distance
-
 g = geocoders.GoogleV3()
 
+from google.appengine.api import memcache
 from google.appengine.ext import db
+from google.appengine.ext import blobstore
+from google.appengine.ext.webapp import blobstore_handlers
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir), 
@@ -146,6 +149,16 @@ def make_cookie(name, value, h=""):
     return '%s=%s|%s; Path=/' % (name, value, h)
 
 class BaseHandler(webapp2.RequestHandler):
+    def initialize(self, *a, **kw):
+        webapp2.RequestHandler.initialize(self, *a, **kw)
+        if self.logged_in():
+            self.user = User.get_by_id(int(self.get_cookie("user_id").split("|")[0]))
+
+        if self.request.url.endswith('.json'):
+            self.format = 'json'
+        else:
+            self.format = 'html'
+
     def write(self, *a, **kw):
         self.response.out.write(*a, **kw)
 
@@ -155,6 +168,11 @@ class BaseHandler(webapp2.RequestHandler):
             self.write(render_str(template, user=user, **kw))
         else:
             self.write(render_str(template, **kw))
+
+    def render_json(self, d):
+        self.response.headers['Content-Type'] = 'application/json; charset=UTF-8'
+        json_txt = json.dumps(d)
+        self.write(json_txt)
 
     def logged_in(self):
         return self.validate_cookie(self.get_cookie("user_id"))
@@ -171,6 +189,7 @@ class BaseHandler(webapp2.RequestHandler):
                 user = User.get_by_id(int(user_id))
                 if user and user.pw_hash == pw_hash:
                     return True
+
 
 class PersonalWebsiteHandler(BaseHandler):
     def get(self):
@@ -283,14 +302,11 @@ class SignupHandler(BaseHandler):
             verify_error = "Passwords don't match"
             hasError = True
 
-        if user_email: # and not valid_email(user_email):
-            if not user_email == secret.invitecode:
+        if user_email: # and 
+            if not valid_email(user_email): # and not user_email == secret.invitecode:
                 email_error = "Not a valid email."
                 hasError = True         
 
-        else:
-            email_error = "Not authorized to sign up."
-            hasError = True
 
         if not (hasError):
             h = make_pw_hash(user_username, user_password)
@@ -350,23 +366,28 @@ class WelcomeHandler(BaseHandler):
 class GetImageHandler(BaseHandler):
     def get(self):
         post = BlogPosts.get_by_id(int(self.request.get("entity_id")))
-        if post.picture:
-            self.response.headers['Content-Type'] = "image/png"
+        if post and post.picture:
+            self.response.headers['Content-Type'] = "image/jpeg"
             self.write(post.picture)
+        else:
+            self.write("no picture")
 
 class NewBlogPostHandler(BaseHandler):
     def get(self):
-        self.render('newpost.html', subject="", content="")
+        upload_url = blobstore.create_upload_url('/upload')
+        self.render('newpost.html')
 
     def post(self):
         user_subject = self.request.get('subject')
         user_content = self.request.get('content')
         user_location = self.request.get('location')
         user_address = self.request.get('address')
-        user_picture = self.request.get('picture').encode('utf-8')
+        #user_picture = self.request.get('picture').encode('utf-8')
+        user_picture = db.Blob(self.request.get('picture'))
+
 
         if not (user_subject and user_content):
-            error_message = "Please enter a subject and content"
+            error_message = "Please enter a subject and content."
             self.render('newpost.html', 
                         subject=user_subject, 
                         content=user_content, 
@@ -375,9 +396,30 @@ class NewBlogPostHandler(BaseHandler):
                         error_message=error_message, 
                         )
         else:
-            if user_address:
-                _, coords = g.geocode(user_address, exactly_one=True) 
-                user_coords = "%s, %s" % coords
+            user_coords = None
+            try:
+                if user_address:
+                    for _, coord in g.geocode(user_address, exactly_one=False):
+                        coords = coord
+                        break
+                if coords:
+                    user_coords = "%s, %s" % coords
+            except:
+                user_coords = None
+                if user_address:
+                    error_message = "Address not found."
+                    self.render('newpost.html', 
+                                subject=user_subject, 
+                                content=user_content, 
+                                location=user_location,
+                                address=user_address,  
+                                error_message=error_message, 
+                                )
+                    return                
+
+
+            if user_coords and not user_location:
+                user_location = user_address
 
             blog_post = BlogPosts(subject=user_subject, 
                                   content=user_content, 
@@ -386,22 +428,36 @@ class NewBlogPostHandler(BaseHandler):
                                   picture=user_picture, 
                                   coords=user_coords)
             blog_post.put()
+            memcache.flush_all()
             post_id = str(blog_post.key().id())
             #self.redirect('/blog')
             self.redirect('/blog/%s' % post_id)
 
+class PlacesHandler(BaseHandler):
+    def get(self):
+        image_url="http://maps.googleapis.com/maps/api/staticmap?center=Fremont,CA&zoom=9&scale=1&visual_refresh=true&size=600x600&sensor=false"
+        posts = db.GqlQuery("SELECT * FROM BlogPosts")
+        for post in posts:
+            if post.coords:
+                image_url += "&markers=" + str(post.coords)
+        self.render('places.html', image_url=image_url)
+
 class BlogHandler(BaseHandler):
     def render_front(self, blog_posts=""):
-        posts = db.GqlQuery("SELECT * FROM BlogPosts ORDER BY created DESC")
-        self.render('blog.html', blog_posts=posts)
+        posts, last_queried = BlogPosts.top_posts()
+        self.render('blog.html', blog_posts=posts, last_queried=(datetime.datetime.utcnow() - last_queried).total_seconds())
 
     def get(self):
-        self.render_front()
+        if self.format == 'json':
+            posts = BlogPosts.top_posts()
+            self.render_json([post.as_dict() for post in posts])
+        else:
+            self.render_front()
 
 class BlogPosts(db.Model):
-    subject = db.StringProperty(required = True)
-    content = db.TextProperty(required = True)
-    created = db.DateTimeProperty(auto_now_add = True)
+    subject = db.StringProperty(required=True)
+    content = db.TextProperty(required=True)
+    created = db.DateTimeProperty(auto_now_add=True)
     picture = db.BlobProperty()
     location = db.StringProperty()
     address = db.StringProperty()
@@ -412,6 +468,49 @@ class BlogPosts(db.Model):
         pst_time = datetime.datetime.fromtimestamp(time.mktime(self.created.timetuple()), Pacific_tzinfo())
         return render_str("post.html", post=self, pst_time=pst_time)
 
+    def as_dict(self):
+        time_fmt = "%c"
+        d = {'subject' : self.subject, 
+             'content' : self.content, 
+             'created' : self.created.strftime(time_fmt), 
+             'picture' : self.picture, 
+             'location' : self.location, 
+             'address' : self.address, 
+            }
+        return d
+
+    @staticmethod
+    def top_posts(update=False):
+        key = 'topa'
+        x = memcache.get(key)
+        if x:
+            posts, last_queried = x
+        else:
+            posts = None
+        if posts == None or update:
+            logging.error("DB QUERY")
+            posts = db.GqlQuery("SELECT * FROM BlogPosts ORDER BY created DESC LIMIT 10")
+            posts = list(posts)
+            last_queried = datetime.datetime.utcnow()
+            memcache.set(key, (posts, last_queried))
+        return posts, last_queried
+
+    @staticmethod
+    def get_post(post_id):
+        key = str(post_id)
+        x = memcache.get(key)
+        if x:
+            post, last_queried = x
+        else:
+            post = None
+        if post == None:
+            logging.error("DB QUERY")
+            post = BlogPosts.get_by_id(int(post_id))
+            last_queried = datetime.datetime.utcnow()
+            memcache.set(key, (post, last_queried))
+        return post, last_queried
+
+
 class User(db.Model):
     username = db.StringProperty(required=True)
     pw_hash = db.StringProperty(required=True)
@@ -419,11 +518,21 @@ class User(db.Model):
 
 class PermalinkHandler(BaseHandler):
     def get(self, post_id):
-        blog_post = BlogPosts.get_by_id(int(post_id))
+        blog_post, last_queried = BlogPosts.get_post(post_id)
         if blog_post:
-            self.render('permalink.html', post=blog_post)
+            if self.format == 'json':
+                self.render_json(blog_post.as_dict())
+            else: 
+                self.render('permalink.html', post=blog_post, last_queried=(datetime.datetime.utcnow()-last_queried).total_seconds())
         else:
             self.error(404)
+
+    def post(self, post_id):
+        blog_post, _ = BlogPosts.get_post(post_id)
+        blog_post.delete()
+        memcache.flush_all()
+        self.redirect('/blog/flush')
+        self.redirect('/blog')
 
 class AboutMeHandler(BaseHandler):
     def get(self):
@@ -433,6 +542,11 @@ class AboutMeHandler(BaseHandler):
         posts = db.GqlQuery("SELECT * FROM BlogPosts ORDER BY created DESC")
         self.render('me.html', blog_posts=posts)
 
+class FlushHandler(BaseHandler):
+    def get(self):
+        memcache.flush_all()
+        self.redirect('/blog')
+
 application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler), 
                                        ('/thanks', ThanksHandler), 
                                        ('/alvin', AlvinHandler), 
@@ -440,10 +554,12 @@ application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler),
                                        ('/blog/signup', SignupHandler),
                                        ('/blog/logout', LogoutHandler),
                                        ('/blog/login', LoginHandler),  
-                                       ('/blog/welcome', WelcomeHandler), 
-                                       ('/blog', BlogHandler), 
+                                       ('/blog/welcome', WelcomeHandler),
+                                       ('/blog/places', PlacesHandler), 
+                                       ('/blog/?(?:\.json)?', BlogHandler), 
                                        ('/blog/newpost', NewBlogPostHandler), 
-                                       ('/blog/([0-9]+)', PermalinkHandler), 
-                                       ('/blog/me', AboutMeHandler), 
+                                       ('/blog/([0-9]+)(?:\.json)?', PermalinkHandler), 
+                                       ('/blog/me', AboutMeHandler),
+                                       ('/blog/flush', FlushHandler),  
                                        ('/img', GetImageHandler)
                                       ], debug=True)

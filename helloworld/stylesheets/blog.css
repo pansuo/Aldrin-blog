@@ -106,7 +106,7 @@ a {
 	padding-right: 10px;
 }
 
-img {
+.me_picture {
 	height: 200px;
 	width: 200px;
 }
@@ -148,10 +148,7 @@ td {
 	color: red;
 }
 
-.signup_button {
-}
-
-input[type=submit] {
+.form_button {
 	border-radius: 3px;
 	border: 1px solid black;
 	font-size: 1em;
@@ -164,12 +161,21 @@ input[type=submit] {
 	cursor: pointer;
 }
 
-input[type=submit]:hover {
+.form_button:hover {
 	background-color: #FF7C1F;
 }
 
 .location {
 	font-weight: bold;
+	cursor: pointer;
+}
+
+.location_no_link {
+	font-weight: bold;
+}
+
+.location:hover {
+	color: #8FBCDB;
 }
 
 #welcome {
@@ -180,3 +186,38 @@ input[type=submit]:hover {
 	display: none;
 }
 
+.places_picture {
+	display: none;
+}
+
+.post {
+	display: none;
+}
+
+.newpostform {
+	display: none;
+}
+
+.aboutmepage {
+	display: none;
+}
+
+.query_time {
+	color: gray;
+	float: right;
+	font-size: .6em;
+}
+
+.delete {
+	text-align: right;
+}
+
+.post_delete_button {
+	border: 1px gray solid;
+	border-radius: 4px;
+	color: red;
+}
+
+.post_picture {
+	width: 600px;
+}

@@ -5,7 +5,13 @@
 	{% for post in blog_posts %}
 		{{ post.render() | safe }}
 	{% else %}
-		<div style="color: red">There is nothing here!</div>
+		<div style="color: red">
+			There is nothing here!
+		</div>
 	{% endfor %}
+
+	<div class="query_time">
+		Queried {{last_queried}} seconds ago
+	</div>
 
 {% endblock %}

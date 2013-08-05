@@ -11,6 +11,8 @@ handlers:
   static_dir: stylesheets
 - url: /docs
   static_dir: docs
+- url: /scripts
+  static_dir: scripts
 
 - url: /.*
   script: helloworld.application
