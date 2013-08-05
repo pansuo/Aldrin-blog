@@ -17,7 +17,12 @@ handlers:
 - url: /.*
   script: helloworld.application
 
+- url: /_ah/mail/.+
+  script: helloworld.application
+  login: admin
 
+inbound_services:
+- mail
 
 
 libraries:                                                                      

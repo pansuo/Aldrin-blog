@@ -3,6 +3,7 @@
 import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string, secret, sys, json, logging
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'libs'))
 
+import email
 
 from geopy import geocoders
 from geopy import distance
@@ -12,10 +13,59 @@ from google.appengine.api import memcache
 from google.appengine.ext import db
 from google.appengine.ext import blobstore
 from google.appengine.ext.webapp import blobstore_handlers
+from google.appengine.ext.webapp.mail_handlers import InboundMailHandler
 
 template_dir = os.path.join(os.path.dirname(__file__), 'templates')
 jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir), 
                                autoescape = True)
+
+class IncomingEmailHandler(InboundMailHandler):
+    subject_prefix = "[blog] "
+    address_prefix = "Address: "
+    location_prefix = "Location: "
+    content_prefix = "Content: "
+
+    def receive(self, mail_message):
+        logging.error("Received message from %s" % mail_message.sender)
+
+
+        email_subject = mail_message.subject
+        logging.error("subject = " + email_subject)
+        if not email_subject.startswith(self.subject_prefix):
+            return
+        else:
+            email_subject = email_subject.replace(self.subject_prefix, "")
+
+
+        plaintext_bodies = mail_message.bodies('text/plain')
+        email_body = ""
+        for y, x in plaintext_bodies:
+            email_body = x.decode()
+            logging.error("body = " + x.decode())
+
+        email_dict = self.parse_body(email_body)
+
+
+        blog_post = BlogPosts(subject=email_subject, 
+                              content=email_dict['content'], 
+                              location=email_dict['location'], 
+                            )
+        blog_post.put()
+        memcache.flush_all()
+
+    def parse_body(self, message):
+        body_dict = {}
+        body_parts = message.replace("\r", "").split("\n")
+        for part in body_parts:
+            if part.startswith(self.location_prefix):
+                body_dict['location'] = part.replace(self.location_prefix, "")
+            if part.startswith(self.address_prefix):
+                body_dict['address'] = part.replace(self.address_prefix, "")
+            if part.startswith(self.content_prefix):
+                body_dict['content'] = part.replace(self.content_prefix, "")
+        return body_dict
+
+
 
 # Used to convert UTC to PDT
 class Pacific_tzinfo(datetime.tzinfo):
@@ -547,6 +597,11 @@ class FlushHandler(BaseHandler):
         memcache.flush_all()
         self.redirect('/blog')
 
+class EmailHandler(BaseHandler):
+    def get(self):
+        self.write("Email")
+        posts = getmail.update()
+
 application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler), 
                                        ('/thanks', ThanksHandler), 
                                        ('/alvin', AlvinHandler), 
@@ -561,5 +616,7 @@ application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler),
                                        ('/blog/([0-9]+)(?:\.json)?', PermalinkHandler), 
                                        ('/blog/me', AboutMeHandler),
                                        ('/blog/flush', FlushHandler),  
-                                       ('/img', GetImageHandler)
+                                       ('/img', GetImageHandler), 
+                                       ('/blog/emailupdate', EmailHandler), 
+                                        IncomingEmailHandler.mapping()
                                       ], debug=True)
