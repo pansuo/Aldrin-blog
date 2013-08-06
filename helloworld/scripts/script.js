@@ -9,4 +9,6 @@ $(document).ready(function() {
 	$('.post').fadeIn(500);
 	$('.newpostform').fadeIn(500);
 	$('.aboutmepage').fadeIn(500);
+
 });
+
