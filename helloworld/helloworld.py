@@ -1,6 +1,7 @@
 # Request handlers for http://helloworld-aldrin.appspot.com
+from __future__ import with_statement
 
-import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string, secret, sys, json, logging, email
+import webapp2, cgi, re, jinja2, os, time, datetime, hashlib, hmac, random, string, secret, sys, json, logging, email, urllib
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'libs'))
 
 from geopy import geocoders
@@ -9,6 +10,7 @@ g = geocoders.GoogleV3()
 
 from google.appengine.api import memcache
 from google.appengine.api import mail
+from google.appengine.api import files
 from google.appengine.ext import db
 from google.appengine.ext import blobstore
 from google.appengine.ext.webapp import blobstore_handlers
@@ -52,9 +54,6 @@ class IncomingEmailHandler(InboundMailHandler):
         email_dict = self.parse_body(email_body)
         logging.error("parsed body")
 
-        # If no content text, not valid post
-        if 'content' not in email_dict:
-            pass
         logging.error("checked for content")
         # If no location but address is present, location = address
         if not email_dict['location'] and email_dict['address']:
@@ -74,16 +73,49 @@ class IncomingEmailHandler(InboundMailHandler):
             user_coords = None
 
         # Get email attachment
-        user_picture = ""
+        blob_key = None
+
+        """
         logging.error(dir(mail_message))
         if hasattr(mail_message, 'attachments'):
             logging.error("GOT EMAIL ATTACHMENT")
             for filename, contents in mail_message.attachments:
-                logging.error(filename.decode())
-                user_picture = db.Blob(contents.decode())
+                logging.error(dir(filename))
+                user_picture = contents.decode()
                 break
+
+            if user_picture:
+                file_name = files.blobstore.create(mime_type="image/jpeg")
+                with files.open(file_name, 'a') as f:
+                    f.write(user_picture)
+                files.finalize(file_name)
+                blob_key = files.blobstore.get_blob_key(file_name)
         else:
-            user_picture = ""
+            blob_key = None
+        """
+
+        mail = mail_message.original
+        maintype = mail.get_content_maintype()
+        if maintype == 'multipart':
+            for part in mail.get_payload():
+                logging.error(part.get_content_maintype())
+                content_type = part.get_content_maintype()
+                if content_type == 'image' or content_type == 'video':
+                    if content_type == 'image':
+                        mime_type = 'image/jpeg'
+                    else:
+                        mime_type = 'video/quicktime'
+                    user_picture = part.get_payload(decode=True)
+                    if user_picture:
+                        file_name = files.blobstore.create(mime_type=mime_type)
+                        with files.open(file_name, 'a') as f:
+                            f.write(user_picture)
+                        files.finalize(file_name)
+                        blob_key = files.blobstore.get_blob_key(file_name)                   
+
+
+
+
 
         # Put contents into Blogposts object
         blog_post = BlogPosts(subject=email_subject, 
@@ -91,7 +123,7 @@ class IncomingEmailHandler(InboundMailHandler):
                               location=email_dict['location'], 
                               address=email_dict['address'], 
                               coords=user_coords, 
-                              picture=user_picture
+                              blob_key=blob_key
                             )
 
         # Send post to database and flush memcache
@@ -113,8 +145,6 @@ class IncomingEmailHandler(InboundMailHandler):
             if part.startswith(self.content_prefix):
                 body_dict['content'] = part.replace(self.content_prefix, "")
         return body_dict
-
-
 
 # Used to convert UTC to PDT
 class Pacific_tzinfo(datetime.tzinfo):
@@ -408,7 +438,21 @@ class NewBlogPostHandler(BaseHandler):
         user_content = self.request.get('content')
         user_location = self.request.get('location')
         user_address = self.request.get('address')
-        user_picture = db.Blob(self.request.get('picture'))
+        user_picture = self.request.get('picture')
+        is_video = self.request.get('is_video')
+        if is_video:
+            mime_type = "video/quicktime"
+        else:
+            mime_type = "image/jpeg"
+
+        blob_key = None
+        if user_picture:
+            file_name = files.blobstore.create(mime_type=mime_type)
+            with files.open(file_name, 'a') as f:
+                f.write(user_picture)
+            files.finalize(file_name)
+            blob_key = files.blobstore.get_blob_key(file_name)
+
 
         # Subject and content required. If not present, print error and re-render
         if not (user_subject and user_content):
@@ -430,8 +474,8 @@ class NewBlogPostHandler(BaseHandler):
                     for _, coord in g.geocode(user_address, exactly_one=False):
                         coords = coord
                         break
-                if coords:
-                    user_coords = "%s, %s" % coords
+                    if coords:
+                        user_coords = "%s, %s" % coords
 
             # No coordinates found, address invalid, print error and re-render form
             except:
@@ -456,7 +500,9 @@ class NewBlogPostHandler(BaseHandler):
                                   location=user_location, 
                                   address=user_address, 
                                   picture=user_picture, 
-                                  coords=user_coords)
+                                  coords=user_coords, 
+                                  blob_key=blob_key
+                                  )
             blog_post.put()
             memcache.flush_all()
             
@@ -498,9 +544,9 @@ class BlogHandler(BaseHandler):
 class BlogPosts(db.Model):
     # Subject and content are required, 'created' is the created time, everything else is optional
     subject = db.StringProperty(required=True)
-    content = db.TextProperty(required=True)
+    content = db.TextProperty()
     created = db.DateTimeProperty(auto_now_add=True)
-    picture = db.BlobProperty()
+    blob_key = blobstore.BlobReferenceProperty()
     location = db.StringProperty()
     address = db.StringProperty()
     coords = db.GeoPtProperty()
@@ -601,6 +647,13 @@ class FlushHandler(BaseHandler):
         memcache.flush_all()
         self.redirect('/blog')
 
+class ServeHandler(blobstore_handlers.BlobstoreDownloadHandler):
+    def get(self, resource):
+        resource = str(urllib.unquote(resource))
+        blob_info = blobstore.BlobInfo.get(resource)
+        logging.error("BLOB CONTENT TYPE " + blob_info.content_type)
+        self.send_blob(blob_info)
+
 # All mappings of the entire website.
 # Each tuple is made up of the url suffix and it's corresponding handler
 application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler), 
@@ -614,6 +667,7 @@ application = webapp2.WSGIApplication([('/', PersonalWebsiteHandler),
                                        ('/blog/([0-9]+)(?:\.json)?', PermalinkHandler), 
                                        ('/blog/me', AboutMeHandler),
                                        ('/blog/flush', FlushHandler),  
-                                       ('/img', GetImageHandler), 
+                                       ('/img', GetImageHandler),
+                                       ('/serve/([^/]+)?', ServeHandler),  
                                         IncomingEmailHandler.mapping()
                                       ], debug=True)
