@@ -13,9 +13,9 @@ body {
 }
 
 #name {
-	font-size: 5em;
+	font-size: 6em;
 	text-align: center;
-	margin: 100px 0px 0px 0px;
+	margin: 150px 0px 0px 0px;
 	color: #154890;
 	/*font-weight: bold; */
 }
@@ -25,7 +25,7 @@ body {
 }
 
 .letter {
-	margin: -10px;
+	margin: -13px;
 }
 
 .letter:hover {
