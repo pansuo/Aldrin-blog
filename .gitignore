@@ -12,3 +12,11 @@ helloworld/getmail.pyc
 helloworld/libs/getmail/getmail.py
 
 helloworld/testsets.jpg
+
+helloworld/templates/test.html
+
+helloworld/scripts/jquery.fittext.js
+
+helloworld/scripts/aldrinagana.js
+
+helloworld/scripts/.DS_Store

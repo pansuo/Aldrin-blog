@@ -1,5 +1,7 @@
 <!-- post.html -->
 
+<!DOCTYPE html>
+
 <div class="post">
 
 	<br>
@@ -10,7 +12,7 @@
 			</span>
 		</a>
 		<span class="post_created">
-			{{pst_time.strftime("%b %d, %Y %r")}}
+			{{pst_time.strftime("%b %d, %Y | %r")}}
 		</span>
 		<hr>	
 	</div>
@@ -28,12 +30,22 @@
 
 	<pre class="post_content">{{ post._render_text | safe }}</pre>
 
-{% if post.picture %}
-	<a href="/img?entity_id={{post.key().id()}}">
-		<img class="post_picture" src="/img?entity_id={{post.key().id()}}">
+{% if post.blob_key.content_type == "image/jpeg" %}
+	<a href="/serve/{{post.blob_key.key()}}">
+		<img class="post_picture" src="/serve/{{post.blob_key.key()}}">
 	</a>
 	<br>
 {% endif %} 
+
+{% if post.blob_key.content_type == "video/quicktime" %}
+	<video id="my_video_1" class="video-js vjs-default-skin vjs-control-bar" controls
+ 	preload="none" width="600" height="400" loop
+ 	data-setup='{"rotate": 90, "zoom": "1.5"}'>
+ 	<source src="/serve/{{post.blob_key.key()}}" type='video/mp4'>
+	</video>
+{% endif %}
+
+
 
 	<br>
 	
