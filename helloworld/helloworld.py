@@ -22,7 +22,7 @@ jinja_env = jinja2.Environment(loader = jinja2.FileSystemLoader(template_dir),
 
 # Handler for incoming mail
 class IncomingEmailHandler(InboundMailHandler):
-    subject_prefix = "[blog] "
+    subject_prefix = ""
     address_prefix = "Address: "
     location_prefix = "Location: "
     content_prefix = "Content: "
@@ -74,26 +74,6 @@ class IncomingEmailHandler(InboundMailHandler):
 
         # Get email attachment
         blob_key = None
-
-        """
-        logging.error(dir(mail_message))
-        if hasattr(mail_message, 'attachments'):
-            logging.error("GOT EMAIL ATTACHMENT")
-            for filename, contents in mail_message.attachments:
-                logging.error(dir(filename))
-                user_picture = contents.decode()
-                break
-
-            if user_picture:
-                file_name = files.blobstore.create(mime_type="image/jpeg")
-                with files.open(file_name, 'a') as f:
-                    f.write(user_picture)
-                files.finalize(file_name)
-                blob_key = files.blobstore.get_blob_key(file_name)
-        else:
-            blob_key = None
-        """
-
         mail = mail_message.original
         maintype = mail.get_content_maintype()
         if maintype == 'multipart':
@@ -628,6 +608,10 @@ class PermalinkHandler(BaseHandler):
     # Delete post, fush cache, and redirect to blog
     def post(self, post_id):
         blog_post, _ = BlogPosts.get_post(post_id)
+        if blog_post.blob_key:
+            blob_key = blog_post.blob_key.key()
+            blob_info = blobInfo.get(blob_key)
+            blob_info.delete()
         blog_post.delete()
         memcache.flush_all()
         self.redirect('/blog/flush')
