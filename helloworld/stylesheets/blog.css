@@ -221,3 +221,23 @@ td {
 .post_picture {
 	width: 600px;
 }
+
+.vjs-default-skin .vjs-big-play-button
+{
+top: 50%	!important;
+left: 50%	!important;
+margin: -4em auto auto -6em !important;
+}
+
+.vjs-default-skin { 
+
+}
+.vjs-play-progress, .vjs-volume-level { 
+	background: #FF6600 !important;
+}
+.vjs-control-bar, .vjs-big-play-button { 
+
+}
+.vjs-slider { 
+
+}
