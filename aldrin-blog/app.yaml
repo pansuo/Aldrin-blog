@@ -1,6 +1,6 @@
 # Configuration file for app engine
 
-application: helloworld-aldrin
+application: aldrin-blog
 version: 1
 runtime: python27
 api_version: 1
@@ -15,10 +15,10 @@ handlers:
   static_dir: scripts
 
 - url: /.*
-  script: helloworld.application
+  script: aldrin-blog.application
 
 - url: /_ah/mail/.+
-  script: helloworld.application
+  script: aldrin-blog.application
   login: admin
 
 inbound_services:
