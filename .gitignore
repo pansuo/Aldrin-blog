@@ -24,3 +24,7 @@ helloworld/scripts/.DS_Store
 helloworld/stylesheets/.DS_Store
 
 helloworld/.DS_Store
+
+secret.py
+
+secret.pyc
