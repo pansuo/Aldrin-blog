@@ -610,7 +610,7 @@ class PermalinkHandler(BaseHandler):
         blog_post, _ = BlogPosts.get_post(post_id)
         if blog_post.blob_key:
             blob_key = blog_post.blob_key.key()
-            blob_info = blobInfo.get(blob_key)
+            blob_info = blobstore.BlobInfo.get(blob_key)
             blob_info.delete()
         blog_post.delete()
         memcache.flush_all()
