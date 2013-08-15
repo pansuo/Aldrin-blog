@@ -435,8 +435,8 @@ class NewBlogPostHandler(BaseHandler):
 
 
         # Subject and content required. If not present, print error and re-render
-        if not (user_subject and user_content):
-            error_message = "Please enter a subject and content."
+        if not (user_subject):
+            error_message = "Please enter a subject."
             self.render('newpost.html', 
                         subject=user_subject, 
                         content=user_content, 
@@ -515,7 +515,7 @@ class BlogHandler(BaseHandler):
     # if requesting json, print the json, otherwise print the html
     def get(self):
         if self.format == 'json':
-            posts = BlogPosts.top_posts()
+            posts, _ = BlogPosts.top_posts()
             self.render_json([post.as_dict() for post in posts])
         else:
             self.render_front()
@@ -543,9 +543,10 @@ class BlogPosts(db.Model):
         d = {'subject' : self.subject, 
              'content' : self.content, 
              'created' : self.created.strftime(time_fmt), 
-             'picture' : self.picture, 
              'location' : self.location, 
              'address' : self.address, 
+             'location_image' : "http://maps.googleapis.com/maps/api/staticmap?markers=%s&zoom=13&visual_refresh=true&size=300x300&sensor=false" % self.coords, 
+             'media' : "http://aldrin-blog.appspot.com/serve/%s" % self.blob_key.key()
             }
         return d
 
