@@ -562,7 +562,7 @@ class BlogPosts(db.Model):
             posts = None
         if posts == None or update:
             logging.error("DB QUERY")
-            posts = db.GqlQuery("SELECT * FROM BlogPosts ORDER BY created DESC LIMIT 10")
+            posts = db.GqlQuery("SELECT * FROM BlogPosts ORDER BY created DESC")
             posts = list(posts)
             last_queried = datetime.datetime.utcnow()
             memcache.set(key, (posts, last_queried))
