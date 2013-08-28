@@ -14,7 +14,7 @@ post date: #8FBCDB;
 }
 
 body {
-	width: 600px;
+	width: 700px;
 	background-color: #f7f7f7;	
 	margin: 0 auto;
 	padding:0;
@@ -188,6 +188,7 @@ td {
 
 .places_picture {
 	display: none;
+	width: 100%;
 }
 
 .post {
@@ -219,7 +220,7 @@ td {
 }
 
 .post_picture {
-	width: 600px;
+	width: 100%;
 }
 
 .vjs-default-skin .vjs-big-play-button
